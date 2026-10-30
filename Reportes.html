@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard · Auditoría Médica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg:        #0b1120;
+      --surface:   #111827;
+      --surface2:  #1a2236;
+      --border:    #1e2d45;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --blue:      #3b82f6;
+      --green:     #10b981;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
+      --purple:    #8b5cf6;
+      --cyan:      #06b6d4;
+      --pink:      #ec4899;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.82rem;
+      min-height: 100vh;
+    }
+
+    /* ── LOADING ── */
+    #overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; gap: 20px;
+    }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #overlay p { color: var(--muted); font-size: 0.8rem; }
+
+    /* ── HEADER ── */
+    .dash-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .dash-header .logo {
+      display: flex; align-items: center; gap: 14px;
+    }
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; color: #fff;
+    }
+    .logo-title { font-size: 1.1rem; font-weight: 700; color: #fff; }
+    .logo-sub   { font-size: 0.65rem; color: var(--muted); margin-top: 1px; }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    #ts { font-size: 0.65rem; color: var(--muted); }
+    .btn-close-dash {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); border-radius: 8px; padding: 6px 14px;
+      cursor: pointer; font-size: 0.75rem; font-family: inherit;
+      transition: all 0.2s;
+    }
+    .btn-close-dash:hover { background: var(--border); color: var(--text); }
+
+    /* ── MAIN ── */
+    .dash-body { padding: 24px 28px; max-width: 1600px; margin: 0 auto; }
+
+    /* ── SECTION TITLE ── */
+    .section-label {
+      font-size: 0.6rem; font-weight: 700; letter-spacing: 1.2px;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+    }
+    .section-label::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ── KPI CARDS ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (max-width: 700px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+      position: relative; overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .kpi-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+    .kpi-card.c-blue::before   { background: var(--blue); }
+    .kpi-card.c-green::before  { background: var(--green); }
+    .kpi-card.c-amber::before  { background: var(--amber); }
+    .kpi-card.c-red::before    { background: var(--red); }
+    .kpi-card.c-purple::before { background: var(--purple); }
+    .kpi-card.c-cyan::before   { background: var(--cyan); }
+    .kpi-card.c-pink::before   { background: var(--pink); }
+
+    .kpi-icon {
+      font-size: 1.3rem; margin-bottom: 10px;
+      opacity: 0.8;
+    }
+    .kpi-card.c-blue   .kpi-icon { color: var(--blue); }
+    .kpi-card.c-green  .kpi-icon { color: var(--green); }
+    .kpi-card.c-amber  .kpi-icon { color: var(--amber); }
+    .kpi-card.c-red    .kpi-icon { color: var(--red); }
+    .kpi-card.c-purple .kpi-icon { color: var(--purple); }
+    .kpi-card.c-cyan   .kpi-icon { color: var(--cyan); }
+    .kpi-card.c-pink   .kpi-icon { color: var(--pink); }
+
+    .kpi-value {
+      font-size: 2rem; font-weight: 800; color: #fff;
+      line-height: 1; margin-bottom: 4px;
+    }
+    .kpi-label {
+      font-size: 0.6rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--muted);
+    }
+
+    /* ── CHARTS GRID ── */
+    .charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .charts-1col { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 20px; }
+    @media (max-width: 900px) { .charts-2col { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .chart-title {
+      font-size: 0.7rem; font-weight: 700; color: var(--text);
+      margin-bottom: 4px;
+    }
+    .chart-sub {
+      font-size: 0.6rem; color: var(--muted); margin-bottom: 16px;
+    }
+    .chart-wrap { position: relative; }
+    .chart-wrap.h260 { height: 260px; }
+    .chart-wrap.h300 { height: 300px; }
+    .chart-wrap.h400 { height: 400px; }
+
+    /* ── TABLE ── */
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .table-card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .table-scroll { overflow-x: auto; }
+
+    table.dash-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.72rem;
+    }
+    table.dash-table thead th {
+      background: var(--surface2);
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 0.58rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--muted);
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+    table.dash-table thead th.right { text-align: right; }
+    table.dash-table thead th.center { text-align: center; }
+
+    table.dash-table tbody tr.org-row {
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    table.dash-table tbody tr.org-row:hover { background: var(--surface2); }
+
+    table.dash-table tbody tr.estab-row {
+      background: rgba(255,255,255,0.02);
+      border-bottom: 1px solid rgba(30,45,69,0.5);
+      display: none;
+    }
+    table.dash-table tbody tr.estab-row.visible { display: table-row; }
+
+    table.dash-table td {
+      padding: 11px 14px;
+      vertical-align: middle;
+      color: var(--text);
+    }
+    table.dash-table td.right  { text-align: right; }
+    table.dash-table td.center { text-align: center; }
+    table.dash-table td.muted  { color: var(--muted); font-size: 0.65rem; }
+
+    .org-name-cell {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .expand-icon {
+      color: var(--muted); font-size: 0.8rem;
+      transition: transform 0.2s; flex-shrink: 0;
+    }
+    .expanded .expand-icon { transform: rotate(90deg); }
+
+    .estab-name-cell {
+      padding-left: 36px !important;
+      color: var(--muted) !important;
+      font-size: 0.68rem;
+    }
+
+    /* ── PROGRESS BAR ── */
+    .prog-wrap { display: flex; align-items: center; gap: 8px; }
+    .prog-bar-bg {
+      flex: 1; height: 5px; background: var(--border);
+      border-radius: 3px; overflow: hidden; min-width: 60px;
+    }
+    .prog-bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+    .prog-val { font-size: 0.65rem; font-weight: 700; min-width: 30px; text-align: right; }
+    .prog-blue   { background: var(--blue); }
+    .prog-green  { background: var(--green); }
+    .prog-amber  { background: var(--amber); }
+    .prog-red    { background: var(--red); }
+
+    /* ── BADGES ── */
+    .badge {
+      display: inline-block; padding: 2px 7px; border-radius: 20px;
+      font-size: 0.58rem; font-weight: 700; letter-spacing: 0.3px;
+    }
+    .badge-blue   { background: rgba(59,130,246,0.15); color: var(--blue); }
+    .badge-green  { background: rgba(16,185,129,0.15); color: var(--green); }
+    .badge-amber  { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .badge-red    { background: rgba(239,68,68,0.15);  color: var(--red); }
+
+    /* ── ERROR ── */
+    .error-box {
+      background: rgba(239,68,68,0.1); border: 1px solid var(--red);
+      border-radius: 10px; padding: 20px; color: var(--red);
+      text-align: center; margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="overlay">
+  <div class="spinner"></div>
+  <p>Calculando métricas...</p>
+</div>
+
+<!-- Header -->
+<div class="dash-header">
+  <div class="logo">
+    <div class="logo-icon"><i class="bi bi-activity"></i></div>
+    <div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="logo-title">Dashboard Auditoría Médica</div>
+        <span class="badge-impl" style="background:rgba(59,130,246,.18); color:#60a5fa; border:1px solid rgba(59,130,246,.35); font-size:.62rem; font-weight:700; padding:2px 7px; border-radius:6px; letter-spacing:.5px;">v 091026 12:15:00 (v165)</span>
+      </div>
+      <div class="logo-sub">GRV · Grupo Río Varadero</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <label for="selContrato" style="font-size:0.6rem;color:var(--muted);white-space:nowrap;">Contrato</label>
+      <select id="selContrato" onchange="cambiarContrato()" style="
+        background:var(--surface2); border:1px solid var(--border);
+        color:var(--text); border-radius:6px; padding:4px 10px;
+        font-size:0.72rem; font-family:inherit; cursor:pointer;
+        min-width:140px;
+      ">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <span id="ts"></span>
+    <button class="btn-close-dash" onclick="window.close()">
+      <i class="bi bi-x-lg"></i> Cerrar
+    </button>
+  </div>
+</div>
+
+<!-- Body -->
+<div class="dash-body" id="dashBody" style="display:none;">
+
+  <!-- KPIs -->
+  <div class="section-label"><i class="bi bi-grid-3x2-gap-fill"></i> Indicadores Generales</div>
+  <div class="kpi-grid">
+    <div class="kpi-card c-blue">
+      <div class="kpi-icon"><i class="bi bi-building"></i></div>
+      <div class="kpi-value" id="kOrg">—</div>
+      <div class="kpi-label">Organismos</div>
+    </div>
+    <div class="kpi-card c-cyan">
+      <div class="kpi-icon"><i class="bi bi-hospital"></i></div>
+      <div class="kpi-value" id="kEstab">—</div>
+      <div class="kpi-label">Establecimientos</div>
+    </div>
+    <div class="kpi-card c-purple">
+      <div class="kpi-icon"><i class="bi bi-people-fill"></i></div>
+      <div class="kpi-value" id="kEmp">—</div>
+      <div class="kpi-label">Empleados</div>
+    </div>
+    <div class="kpi-card c-pink">
+      <div class="kpi-icon"><i class="bi bi-clipboard2-pulse-fill"></i></div>
+      <div class="kpi-value" id="kEst">—</div>
+      <div class="kpi-label">Estudios Totales</div>
+    </div>
+    <div class="kpi-card c-green">
+      <div class="kpi-icon"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="kpi-value" id="kAud">—</div>
+      <div class="kpi-label">Auditados</div>
+    </div>
+    <div class="kpi-card c-amber">
+      <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+      <div class="kpi-value" id="kPend">—</div>
+      <div class="kpi-label">Pendientes</div>
+    </div>
+    <div class="kpi-card c-red">
+      <div class="kpi-icon"><i class="bi bi-send-check-fill"></i></div>
+      <div class="kpi-value" id="kCom">—</div>
+      <div class="kpi-label">Comunicados</div>
+    </div>
+  </div>
+
+  <!-- Charts fila 1: Asistencia + Resultados -->
+  <div class="section-label"><i class="bi bi-pie-chart-fill"></i> Distribución General</div>
+  <div class="charts-2col">
+    <div class="chart-card">
+      <div class="chart-title">Estado de Asistencia</div>
+      <div class="chart-sub">Empleados únicos por estado · <span style="color:#3b82f6;">■</span> Presente &nbsp; <span style="color:#ef4444;">■</span> Ausente &nbsp; <span style="color:#f59e0b;">■</span> Otros</div>
+      <div class="chart-wrap h260"><canvas id="cAsistencia"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Resultados de Auditoría</div>
+      <div class="chart-sub">Distribución de estudios auditados · <span style="color:#10b981;">■</span> Normal &nbsp;<span style="color:#f59e0b;">■</span> Pend. &nbsp;<span style="color:#3b82f6;">■</span> Desvío &nbsp;<span style="color:#ef4444;">■</span> Ausente &nbsp;<span style="color:#8b5cf6;">■</span> Enf.Prof.</div>
+      <div class="chart-wrap h260"><canvas id="cResultados"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Charts fila 2: Organismos presentismo + cobertura auditoría -->
+  <div class="section-label"><i class="bi bi-bar-chart-fill"></i> Por Organismo</div>
+  <div class="charts-2col">
+    <div class="chart-card">
+      <div class="chart-title">% Presentismo por Organismo</div>
+      <div class="chart-sub">Empleados presentes / total · referencia de colores:</div>
+      <div style="display:flex; gap:14px; margin-bottom:12px; flex-wrap:wrap;">
+        <span style="display:flex;align-items:center;gap:5px;font-size:0.6rem;color:var(--muted);">
+          <span style="width:10px;height:10px;border-radius:2px;background:#10b981;display:inline-block;"></span> ≥ 80% (Alto)
+        </span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:0.6rem;color:var(--muted);">
+          <span style="width:10px;height:10px;border-radius:2px;background:#f59e0b;display:inline-block;"></span> 50–79% (Medio)
+        </span>
+        <span style="display:flex;align-items:center;gap:5px;font-size:0.6rem;color:var(--muted);">
+          <span style="width:10px;height:10px;border-radius:2px;background:#ef4444;display:inline-block;"></span> &lt; 50% (Bajo)
+        </span>
+      </div>
+      <div class="chart-wrap h400"><canvas id="cPresentismo"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Cobertura de Auditoría por Organismo</div>
+      <div class="chart-sub">Estudios auditados vs pendientes · <span style="color:#10b981;">■</span> Auditados &nbsp; <span style="color:#f59e0b;">■</span> Pendientes</div>
+      <div class="chart-wrap h400"><canvas id="cCobertura"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Cuadro: Establecimientos por Organismo -->
+  <div class="section-label"><i class="bi bi-buildings"></i> Establecimientos por Organismo</div>
+  <div class="table-card" style="margin-bottom:20px;">
+    <div class="table-card-header">
+      <div>
+        <div class="chart-title">Presencia en Establecimientos</div>
+        <div style="font-size:0.6rem;color:var(--muted);margin-top:2px;">
+          <span style="color:#10b981;">■</span> Al menos un presente &nbsp;
+          <span style="color:#ef4444;">■</span> Todo el personal ausente &nbsp;
+          · Total = Ausentes + Con Presente (siempre)
+        </div>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="dash-table" id="tablaEstabs">
+        <thead>
+          <tr>
+            <th style="width:260px;">Organismo</th>
+            <th class="center">Total Estab.</th>
+            <th class="center" style="color:#ef4444;">Todo Ausente</th>
+            <th class="center" style="color:#10b981;">Al menos un Presente</th>
+            <th style="min-width:180px;">Proporción</th>
+          </tr>
+        </thead>
+        <tbody id="bodyEstabs"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Tabla jerárquica -->
+  <div class="section-label"><i class="bi bi-table"></i> Detalle por Organismo → Establecimiento</div>
+  <div class="table-card">
+    <div class="table-card-header">
+      <div>
+        <div class="chart-title">Resumen Jerárquico</div>
+        <div style="font-size:0.6rem; color:var(--muted); margin-top:2px;">Hacé clic en una fila para ver los establecimientos</div>
+      </div>
+      <div id="totalEstudiosLabel" style="font-size:0.7rem; color:var(--muted);"></div>
+    </div>
+    <div class="table-scroll">
+      <table class="dash-table">
+        <thead>
+          <tr>
+            <th style="width:280px;">Organismo / Establecimiento</th>
+            <th class="right">Empleados</th>
+            <th class="right">Estudios</th>
+            <th class="right">Presentes</th>
+            <th style="min-width:130px;">Presentismo</th>
+            <th class="right">Auditados</th>
+            <th class="right">Pendientes</th>
+            <th style="min-width:130px;">Cobertura</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /dash-body -->
+
+<script>
+// ── PALETA ──────────────────────────────────────────────
+const COLORS = {
+  blue:   '#3b82f6', green:  '#10b981', amber: '#f59e0b',
+  red:    '#ef4444', purple: '#8b5cf6', cyan:  '#06b6d4',
+  pink:   '#ec4899', slate:  '#64748b',
+  // Resultados
+  'Normal Laboral':            '#10b981',
+  'Pendiente de Confirmación': '#f59e0b',
+  // [2026-09-06] Soporte para Ausente/Sin realizar y Ausente
+  'Ausente/Sin realizar':      '#ef4444',
+  'Ausente':                   '#ef4444',
+  'Enfermedad Profesional':    '#8b5cf6',
+  'Práctica defectuosa':       '#64748b',
+  // [2026-09-06] Color para Desistido
+  'Desistido':                 '#a855f7'
+};
+
+// Colores por tipo de asistencia
+function colorAsistencia(etiq) {
+  const e = etiq.toUpperCase();
+  if (e.includes('PRESENTE'))  return COLORS.blue;
+  if (e.includes('AUSENTE'))   return COLORS.red;
+  if (e.includes('DUPLICADO')) return COLORS.slate;
+  return COLORS.amber;
+}
+
+// Capitalizar palabras
+function cap(s) {
+  if (!s) return '';
+  return String(s).toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Contador animado
+function countUp(el, target, duration = 900) {
+  const start = performance.now();
+  const update = now => {
+    const p = Math.min((now - start) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(target * ease).toLocaleString('es-AR');
+    if (p < 1) requestAnimationFrame(update);
+  };
+  requestAnimationFrame(update);
+}
+
+// ── CHART DEFAULTS ───────────────────────────────────────
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.color = '#64748b';
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+Chart.defaults.plugins.legend.labels.padding = 14;
+Chart.defaults.plugins.legend.labels.font = { size: 11 };
+
+// ── ENTRADA ─────────────────────────────────────────────
+window.onload = () => {
+  const now = new Date();
+  document.getElementById('ts').textContent =
+    `Actualizado: ${now.toLocaleDateString('es-AR')} ${now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}`;
+  cargarDashboard('30999068940');
+};
+
+function cargarDashboard(contrato) {
+  document.getElementById('overlay').style.display = 'flex';
+  document.getElementById('dashBody').style.display = 'none';
+  // Destruir charts previos
+  Chart.helpers.each(Chart.instances, c => c.destroy());
+  google.script.run
+    .withSuccessHandler(render)
+    .withFailureHandler(err => {
+      document.getElementById('overlay').innerHTML =
+        `<div class="error-box"><i class="bi bi-exclamation-triangle-fill" style="font-size:2rem;"></i><br><br><strong>Error al cargar datos</strong><br>${err.message}</div>`;
+    })
+    .obtenerDatosDashboard(contrato || null);
+}
+
+function cambiarContrato() {
+  const val = document.getElementById('selContrato').value;
+  cargarDashboard(val || null);
+}
+
+// ── RENDER PRINCIPAL ────────────────────────────────────
+function render(d) {
+  if (d.error) {
+    document.getElementById('overlay').innerHTML =
+      `<div class="error-box" style="margin:20px;"><strong>${d.error}</strong></div>`;
+    return;
+  }
+
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('dashBody').style.display = 'block';
+
+  // Poblar dropdown de contratos
+  const sel = document.getElementById('selContrato');
+  const actualVal = d.contratoActual || '';
+  // Mantener opción "Todos" y agregar contratos
+  sel.innerHTML = '<option value="">Todos</option>';
+  (d.contratosDisponibles || []).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    if (c === actualVal) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  if (!actualVal) sel.value = '';
+  // KPIs
+  countUp(document.getElementById('kOrg'),   d.kpis.organismos);
+  countUp(document.getElementById('kEstab'), d.kpis.establecimientos);
+  countUp(document.getElementById('kEmp'),   d.kpis.empleados);
+  countUp(document.getElementById('kEst'),   d.kpis.estudios);
+  countUp(document.getElementById('kAud'),   d.kpis.auditados);
+  countUp(document.getElementById('kPend'),  d.kpis.pendientes);
+  countUp(document.getElementById('kCom'),   d.kpis.conComunicacion);
+
+  // Gráficos
+  renderDonutAsistencia(d.porAsistencia);
+  renderDonutResultados(d.porResultado);
+  renderBarPresentismo(d.porOrganismo);
+  renderBarCobertura(d.porOrganismo);
+
+  // Cuadro establecimientos
+  renderTablaEstabs(d.porOrganismo);
+
+  // Tabla jerárquica
+  renderTabla(d.porOrganismo, d.porEstablecimiento);
+
+  document.getElementById('totalEstudiosLabel').textContent =
+    `${d.kpis.estudios.toLocaleString('es-AR')} estudios · ${d.kpis.organismos} organismos · ${d.kpis.establecimientos} establecimientos`;
+}
+
+// ── TABLA ESTABLECIMIENTOS POR ORGANISMO ────────────────
+function renderTablaEstabs(data) {
+  const body = document.getElementById('bodyEstabs');
+  body.innerHTML = '';
+  if (!data || data.length === 0) return;
+
+  // Totales para fila de pie
+  let totEstab = 0, totAus = 0, totPres = 0;
+
+  data.forEach(org => {
+    const total   = org.totalEstab        || 0;
+    const ausente = org.estabTodoAusente  || 0;
+    const pres    = org.estabConPresente  || 0;
+    // Doble verificación: siempre debe cumplirse total = ausente + pres
+    const pctPres = total > 0 ? Math.round(pres / total * 100) : 0;
+
+    totEstab += total;
+    totAus   += ausente;
+    totPres  += pres;
+
+    const tr = document.createElement('tr');
+    tr.className = 'org-row';
+    tr.style.cursor = 'default';
+    tr.innerHTML = `
+      <td style="font-weight:600;color:#fff;font-size:0.75rem;">${cap(org.nombre)}</td>
+      <td class="center" style="font-weight:700;color:#fff;">${total}</td>
+      <td class="center" style="color:var(--red);font-weight:600;">${ausente}</td>
+      <td class="center" style="color:var(--green);font-weight:600;">${pres}</td>
+      <td>
+        <div class="prog-wrap">
+          <div class="prog-bar-bg" style="position:relative;height:14px;border-radius:4px;background:var(--red);overflow:visible;">
+            <div style="position:absolute;left:0;top:0;height:100%;width:${pctPres}%;background:var(--green);border-radius:4px 0 0 4px;transition:width 0.6s;"></div>
+          </div>
+          <span class="prog-val" style="min-width:36px;">${pctPres}%</span>
+        </div>
+      </td>
+    `;
+    body.appendChild(tr);
+  });
+
+  // Fila de totales
+  const totPct = totEstab > 0 ? Math.round(totPres / totEstab * 100) : 0;
+  const tfoot = document.createElement('tr');
+  tfoot.style.cssText = 'border-top:2px solid var(--border);background:var(--surface2);';
+  tfoot.innerHTML = `
+    <td style="font-weight:700;color:var(--muted);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.5px;">TOTAL</td>
+    <td class="center" style="font-weight:800;color:#fff;">${totEstab}</td>
+    <td class="center" style="color:var(--red);font-weight:700;">${totAus}</td>
+    <td class="center" style="color:var(--green);font-weight:700;">${totPres}</td>
+    <td>
+      <div class="prog-wrap">
+        <div class="prog-bar-bg" style="position:relative;height:14px;border-radius:4px;background:var(--red);">
+          <div style="position:absolute;left:0;top:0;height:100%;width:${totPct}%;background:var(--green);border-radius:4px 0 0 4px;"></div>
+        </div>
+        <span class="prog-val" style="min-width:36px;">${totPct}%</span>
+      </div>
+    </td>
+  `;
+  body.appendChild(tfoot);
+}
+
+// ── DONUT ASISTENCIA ────────────────────────────────────
+function renderDonutAsistencia(data) {
+  if (!data || data.length === 0) return;
+  new Chart(document.getElementById('cAsistencia'), {
+    type: 'doughnut',
+    data: {
+      labels: data.map(d => cap(d.etiqueta)),
+      datasets: [{
+        data: data.map(d => d.empleados),
+        backgroundColor: data.map(d => colorAsistencia(d.etiqueta)),
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { position: 'right' },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${ctx.raw.toLocaleString('es-AR')} emp. (${ctx.dataset.data.reduce((a,b)=>a+b,0) > 0 ? Math.round(ctx.raw / ctx.dataset.data.reduce((a,b)=>a+b,0) * 100) : 0}%)`
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── DONUT RESULTADOS ────────────────────────────────────
+function renderDonutResultados(data) {
+  if (!data || data.length === 0) {
+    document.getElementById('cResultados').parentElement.innerHTML =
+      '<div style="height:260px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:0.75rem;"><i class="bi bi-inbox" style="font-size:2rem;margin-right:10px;"></i>Sin auditorías registradas</div>';
+    return;
+  }
+  new Chart(document.getElementById('cResultados'), {
+    type: 'doughnut',
+    data: {
+      labels: data.map(d => d.etiqueta),
+      datasets: [{
+        data: data.map(d => d.cantidad),
+        backgroundColor: data.map(d => COLORS[d.etiqueta] || COLORS.slate),
+        borderWidth: 0,
+        hoverOffset: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '68%',
+      plugins: {
+        legend: { position: 'right' },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+              return ` ${ctx.label}: ${ctx.raw.toLocaleString('es-AR')} (${total>0?Math.round(ctx.raw/total*100):0}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── BAR PRESENTISMO ─────────────────────────────────────
+function renderBarPresentismo(data) {
+  if (!data || data.length === 0) return;
+  const top = data.slice(0, 20);
+  new Chart(document.getElementById('cPresentismo'), {
+    type: 'bar',
+    data: {
+      labels: top.map(d => cap(d.nombre)),
+      datasets: [{
+        label: '% Presentismo',
+        data: top.map(d => d.pctPresentismo),
+        backgroundColor: top.map(d =>
+          d.pctPresentismo >= 80 ? COLORS.green :
+          d.pctPresentismo >= 50 ? COLORS.amber : COLORS.red),
+        borderRadius: 5,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: {
+          min: 0, max: 100,
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { callback: v => v + '%' }
+        },
+        y: {
+          grid: { display: false },
+          ticks: { font: { size: 10 } }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = top[ctx.dataIndex];
+              return [
+                ` Presentismo: ${ctx.raw}%`,
+                ` Presentes: ${d.presentes} / ${d.empleados} emp.`
+              ];
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── BAR COBERTURA AUDITORÍA ─────────────────────────────
+function renderBarCobertura(data) {
+  if (!data || data.length === 0) return;
+  const top = data.slice(0, 20);
+  new Chart(document.getElementById('cCobertura'), {
+    type: 'bar',
+    data: {
+      labels: top.map(d => cap(d.nombre)),
+      datasets: [
+        {
+          label: 'Auditados',
+          data: top.map(d => d.auditados),
+          backgroundColor: COLORS.green,
+          borderRadius: 5,
+          borderSkipped: false
+        },
+        {
+          label: 'Pendientes',
+          data: top.map(d => d.pendientes),
+          backgroundColor: COLORS.amber,
+          borderRadius: 5,
+          borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: {
+          stacked: true,
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          stacked: true,
+          grid: { display: false },
+          ticks: { font: { size: 10 } }
+        }
+      },
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: {
+            usePointStyle: true,
+            pointStyle: 'rect',
+            color: '#94a3b8',
+            padding: 16
+          }
+        },
+        tooltip: {
+          mode: 'index',
+          callbacks: {
+            footer: items => {
+              const d = top[items[0].dataIndex];
+              return `Cobertura: ${d.pctAuditado}%`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── TABLA JERÁRQUICA ────────────────────────────────────
+function progBar(pct, colorClass) {
+  return `<div class="prog-wrap">
+    <div class="prog-bar-bg">
+      <div class="prog-bar-fill ${colorClass}" style="width:${pct}%"></div>
+    </div>
+    <span class="prog-val">${pct}%</span>
+  </div>`;
+}
+
+function renderTabla(organismos, establecimientos) {
+  const body = document.getElementById('tableBody');
+  body.innerHTML = '';
+
+  organismos.forEach((org, i) => {
+    // Estabs de este organismo
+    const estabs = establecimientos.filter(e => e.organismo === org.nombre);
+    const hasEstabs = estabs.length > 0;
+
+    // Fila organismo
+    const trOrg = document.createElement('tr');
+    trOrg.className = 'org-row';
+    trOrg.dataset.org = i;
+    trOrg.innerHTML = `
+      <td>
+        <div class="org-name-cell">
+          ${hasEstabs ? `<i class="bi bi-chevron-right expand-icon"></i>` : `<i class="bi bi-dash" style="color:var(--border);font-size:0.8rem;flex-shrink:0;"></i>`}
+          <div>
+            <div style="font-weight:600;color:#fff;font-size:0.75rem;">${cap(org.nombre)}</div>
+            <div style="font-size:0.6rem;color:var(--muted);">${estabs.length} establecimiento${estabs.length!==1?'s':''}</div>
+          </div>
+        </div>
+      </td>
+      <td class="right" style="font-weight:700;color:#fff;">${org.empleados.toLocaleString('es-AR')}</td>
+      <td class="right">${org.estudios.toLocaleString('es-AR')}</td>
+      <td class="right">${org.presentes.toLocaleString('es-AR')}</td>
+      <td>${progBar(org.pctPresentismo, org.pctPresentismo>=80?'prog-blue':org.pctPresentismo>=50?'prog-amber':'prog-red')}</td>
+      <td class="right" style="color:var(--green);font-weight:600;">${org.auditados.toLocaleString('es-AR')}</td>
+      <td class="right" style="color:var(--amber);">${org.pendientes.toLocaleString('es-AR')}</td>
+      <td>${progBar(org.pctAuditado, org.pctAuditado>=80?'prog-green':org.pctAuditado>=50?'prog-amber':'prog-red')}</td>
+    `;
+
+    if (hasEstabs) {
+      trOrg.addEventListener('click', () => toggleEstabs(i, trOrg));
+    }
+    body.appendChild(trOrg);
+
+    // Filas de establecimientos (ocultas)
+    estabs.forEach(est => {
+      const trEst = document.createElement('tr');
+      trEst.className = 'estab-row';
+      trEst.dataset.org = i;
+      trEst.innerHTML = `
+        <td class="estab-name-cell">
+          <i class="bi bi-geo-alt" style="margin-right:6px;"></i>${cap(est.nombre)}
+        </td>
+        <td class="right muted">${est.empleados.toLocaleString('es-AR')}</td>
+        <td class="right muted">${est.estudios.toLocaleString('es-AR')}</td>
+        <td class="right muted">${est.presentes.toLocaleString('es-AR')}</td>
+        <td><div class="prog-wrap">
+          <div class="prog-bar-bg" style="height:3px;">
+            <div class="prog-bar-fill prog-blue" style="width:${est.estudios>0?Math.round(est.presentes/est.estudios*100):0}%"></div>
+          </div>
+          <span class="prog-val" style="font-size:0.6rem;">${est.estudios>0?Math.round(est.presentes/est.estudios*100):0}%</span>
+        </div></td>
+        <td class="right" style="color:var(--green);font-size:0.68rem;">${est.auditados.toLocaleString('es-AR')}</td>
+        <td class="right" style="color:var(--amber);font-size:0.68rem;">${est.pendientes.toLocaleString('es-AR')}</td>
+        <td>${progBar(est.pctAuditado, est.pctAuditado>=80?'prog-green':est.pctAuditado>=50?'prog-amber':'prog-red')}</td>
+      `;
+      body.appendChild(trEst);
+    });
+  });
+}
+
+function toggleEstabs(orgIdx, trOrg) {
+  const isExpanded = trOrg.classList.contains('expanded');
+  // Colapsar todos primero
+  document.querySelectorAll('tr.org-row.expanded').forEach(tr => {
+    tr.classList.remove('expanded');
+  });
+  document.querySelectorAll('tr.estab-row.visible').forEach(tr => {
+    tr.classList.remove('visible');
+  });
+  // Si no estaba expandido, expandir el clickeado
+  if (!isExpanded) {
+    trOrg.classList.add('expanded');
+    document.querySelectorAll(`tr.estab-row[data-org="${orgIdx}"]`).forEach(tr => {
+      tr.classList.add('visible');
+    });
+    // Scroll suave
+    setTimeout(() => trOrg.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+  }
+}
+</script>
+</body>
+</html>

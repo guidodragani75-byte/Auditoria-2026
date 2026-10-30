@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <?!= HtmlService.createHtmlOutputFromFile('Styles').getContent(); ?>
+</head>
+<body>
+
+<?!= HtmlService.createHtmlOutputFromFile('LoadingOverlay').getContent(); ?>
+
+<div class="header-container">
+  <div class="logo-wrapper">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="45" fill="#0052cc" opacity="0.15"/>
+      <path d="M50 15 Q65 30 50 45 Q35 30 50 15 M50 55 Q65 70 50 85 Q35 70 50 55" fill="#0052cc" stroke="#0052cc" stroke-width="1.5"/>
+      <circle cx="30" cy="50" r="6" fill="#0052cc"/>
+      <circle cx="70" cy="50" r="6" fill="#0052cc"/>
+    </svg>
+    <div>
+      <div class="org-name">GRV</div>
+      <div class="org-subtitle">GRUPO RÍO VARADERO</div>
+    </div>
+    <!-- [2026-09-15] Número de implementación y fecha aaaammdd -->
+    <span style="font-size:0.6rem; color:var(--color-primary); background:var(--color-primary-light); padding:3px 8px; border-radius:4px; font-weight:700; margin-left:8px; letter-spacing:0.4px; border:1px solid rgba(0,82,204,0.2); white-space:nowrap;">
+      v 091026 12:15:00 (v165)
+    </span>
+  </div>
+  <div class="header-spacer"></div>
+  <div class="header-actions">
+    <button onclick="toggleFiltros()" class="btn btn-outline-secondary"><i class="bi bi-sliders"></i> Filtros</button>
+    <button onclick="limpiarFiltros()" class="btn btn-outline-secondary"><i class="bi bi-eraser"></i> Limpiar</button>
+    <button id="btnActualizarLinks" onclick="actualizarLinks()" class="btn btn-outline-secondary" title="Sincronizar cambios locales entre Links y Madre"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+    <button id="btnRecargarLinksExterna" onclick="recargarLinksExterna()" class="btn btn-outline-secondary" title="Descargar todas las filas actualizadas de la planilla externa Gestion_Links hacia Links y cruzarlas con Madre"><i class="bi bi-cloud-arrow-down-fill"></i> Traer Links Externos</button>
+    <a href="<?= url ?>?v=empleados" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-people-fill"></i> Empleados</a>
+    <a href="<?= url ?>?v=reclamos" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-x"></i> Reclamos</a>
+    <a href="<?= url ?>?v=desvios" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-exclamation-octagon"></i> Desvíos</a>
+    <a href="<?= url ?>?v=desvios&abm=1" target="_blank" class="btn btn-outline-secondary" title="ABM Catálogo de Estudios Adicionales"><i class="bi bi-tags-fill"></i> Adicionales</a>
+    <a href="<?= url ?>?v=comunicacion" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-send-check-fill"></i> Comunicar</a>
+    <a href="<?= url ?>?v=avance" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-speedometer2"></i> Avance</a>
+    <a href="<?= url ?>?v=kpis" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-pie-chart-fill"></i> KPIs</a>
+    <a href="<?= url ?>?v=cobertura" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-grid-3x3-gap"></i> Cobertura</a>
+    <a href="<?= urlMadre ?>" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-table"></i> Madre</a>
+    <a href="<?= url ?>?v=reportes" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-bar-chart"></i> Reportes</a>
+    <button id="btnGuardarTop" class="btn btn-secondary" disabled onclick="guardarCambiosMasivos()">
+      <i class="bi bi-floppy-fill"></i> Guardar (0)
+    </button>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<div class="container-main">
+  <div class="page-header" style="display:flex; align-items:center; gap:10px;">
+    <h3 class="module-title" style="margin-bottom:0;">Auditoría Médica</h3>
+    <span style="font-size:0.62rem; color:var(--color-primary); background:var(--color-primary-light); padding:2px 8px; border-radius:6px; font-weight:700; border:1px solid rgba(0,82,204,0.2);">v 091026 12:15:00 (v165)</span>
+  </div>
+
+  <div id="pendingBanner">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <span>Cambios sin guardar</span>
+    <button class="btn" style="background:#f57f17; color:#fff; margin-left:auto;" onclick="guardarCambiosMasivos()">Guardar</button>
+    <button class="btn btn-outline-secondary" onclick="descartarCambiosYFiltrar()">Descartar</button>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="card-panel p-0 mb-3">
+    <div class="filters-header" onclick="toggleFiltros()">
+      <span style="font-weight:600; font-size:0.75rem;"><i class="bi bi-funnel me-2"></i>FILTROS AVANZADOS</span>
+      <i class="bi bi-chevron-down" id="filtrosChevron" style="transition:transform 0.3s;"></i>
+    </div>
+    <div class="filters-content expanded" id="filtrosContent">
+      <div class="row g-2">
+        <div class="col-md-3">
+          <div class="section-title">Relación Contrato-Organismo-SRT</div>
+          <div class="row g-1">
+            <div class="col-6"><select id="f_contrato" class="form-select form-select-sm" onchange="actualizarOrganos()"><option value="">Contrato</option></select></div>
+            <div class="col-6"><select id="f_org" class="form-select form-select-sm" onchange="actualizarSRT()"><option value="">Organismo</option></select></div>
+          </div>
+          <div class="row g-1 mt-1">
+            <div class="col-6"><input type="text" id="f_srt" class="form-control form-control-sm" placeholder="SRT" oninput="solicitarFiltro()"></div>
+            <div class="col-6"><input type="text" id="f_establecimiento" class="form-control form-control-sm" placeholder="Estab." oninput="solicitarFiltro()"></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="section-title">Empleado</div>
+          <input type="text" id="f_nombre" class="form-control form-control-sm" placeholder="Nombre..." oninput="solicitarFiltro()">
+          <div class="row g-1 mt-1">
+            <div class="col-6"><input type="text" id="f_cuil" class="form-control form-control-sm" placeholder="CUIL" oninput="solicitarFiltro()"></div>
+            <div class="col-6"><select id="f_estudio" class="form-select form-select-sm" onchange="solicitarFiltro()"><option value="">Estudio</option></select></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="section-title">Fechas y Asistencia</div>
+          <select id="f_fecha_deriv" class="form-select form-select-sm" onchange="solicitarFiltro()"><option value="">F. Derivación</option></select>
+          <div class="row g-1 mt-1">
+            <div class="col-6"><select id="f_asistencia" class="form-select form-select-sm" onchange="solicitarFiltro()"><option value="">Asist.</option><option value="presente">Presente</option><option value="ausente">Ausente</option></select></div>
+            <div class="col-6"><select id="f_estado_res" class="form-select form-select-sm" onchange="solicitarFiltro()"><option value="">Estado</option><option value="sin_resultado">Pendiente</option><option value="con_resultado">Auditado</option></select></div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="section-title">Acción Requerida</div>
+          <select id="f_accion" class="form-select form-select-sm" onchange="solicitarFiltro()">
+            <option value="">Todas las filas</option>
+            <option value="pendiente_auditar">⚠ Pendiente de auditar</option>
+            <option value="pendiente_comunicar">📤 Pendiente de comunicar</option>
+            <option value="inconsistente">⚠️ Con inconsistencias</option>
+          </select>
+          <div class="row g-1 mt-1">
+            <div class="col-6">
+              <select id="f_comunicacion" class="form-select form-select-sm" onchange="solicitarFiltro()">
+                <option value="">Comunicación</option>
+                <option value="con_comunicacion">Con com.</option>
+                <option value="sin_comunicacion">Sin com.</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <select id="f_adjuntos" class="form-select form-select-sm" onchange="solicitarFiltro()">
+                <option value="">Adjuntos</option>
+                <option value="con_adjunto">Con adj.</option>
+                <option value="sin_adjunto">Sin adj.</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCIONES MASIVAS -->
+  <div class="toolbar" id="panelMasivo" style="display:none;">
+    <div class="row align-items-center g-1">
+      <div class="col-md-2"><span class="section-title mb-0">Masiva</span></div>
+      <div class="col-md-10 d-flex gap-1">
+        <input type="date" id="masivo_fecha" class="form-control form-control-sm" oninput="validarFechaDatePicker(this)" style="max-width:100px;">
+        <select id="masivo_res" class="form-select form-select-sm" onchange="toggleMasivoObs(this)" style="max-width:140px;">
+          <option value="">Resultado</option>
+          <option value="Normal Laboral">Normal</option>
+          <option value="Pendiente de Confirmación">Pendiente</option>
+          <option value="Desvío">Desvío</option>
+          <option value="Ausente/Sin realizar">Ausente/Sin real.</option>
+          <option value="Enfermedad Profesional">Enf. Prof.</option>
+          <option value="Práctica defectuosa">Defec.</option>
+          <!-- [2026-09-06] Opción Desistido -->
+          <option value="Desistido">Desistido</option>
+        </select>
+        <input type="text" id="masivo_obs" class="form-control form-control-sm" placeholder="Obs..." style="flex:1;">
+        <button class="btn btn-primary" onclick="aplicarMasivo()"><i class="bi bi-arrow-down-square-fill"></i> Aplicar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INDICADORES -->
+  <div id="indicadoresPanel" style="display:none; margin-bottom:8px;">
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <div style="background:var(--color-white); border:1px solid var(--color-border); border-radius:6px; padding:6px 14px; display:flex; align-items:center; gap:8px;">
+        <span style="font-size:0.6rem; text-transform:uppercase; font-weight:700; color:var(--color-text-secondary);">CUILes únicos</span>
+        <span id="indCuiles" style="font-size:1rem; font-weight:700; color:var(--color-primary);">0</span>
+      </div>
+      <div style="background:var(--color-white); border:1px solid var(--color-border); border-radius:6px; padding:6px 14px; display:flex; align-items:center; gap:8px;">
+        <span style="font-size:0.6rem; text-transform:uppercase; font-weight:700; color:var(--color-text-secondary);">Total estudios</span>
+        <span id="indEstudios" style="font-size:1rem; font-weight:700; color:var(--color-primary);">0</span>
+      </div>
+      <div style="background:#fff8e1; border:1px solid #f59e0b; border-radius:6px; padding:6px 14px; display:flex; align-items:center; gap:8px;" title="Tienen adjunto pero aún no tienen resultado">
+        <span style="font-size:0.6rem; text-transform:uppercase; font-weight:700; color:#f59e0b;">⚠ Pend. Auditar</span>
+        <span id="indAuditar" style="font-size:1rem; font-weight:700; color:#f59e0b;">0</span>
+      </div>
+      <div style="background:#eff6ff; border:1px solid #3b82f6; border-radius:6px; padding:6px 14px; display:flex; align-items:center; gap:8px;" title="Tienen resultado pero aún no tienen comunicación">
+        <span style="font-size:0.6rem; text-transform:uppercase; font-weight:700; color:#3b82f6;">📤 Pend. Comunicar</span>
+        <span id="indComunicar" style="font-size:1rem; font-weight:700; color:#3b82f6;">0</span>
+      </div>
+      <div style="background:var(--color-white); border:1px solid var(--color-border); border-radius:6px; padding:6px 14px; display:flex; align-items:center; gap:8px;">
+        <span style="font-size:0.6rem; text-transform:uppercase; font-weight:700; color:var(--color-text-secondary);">Seleccionados</span>
+        <span id="indSeleccionados" style="font-size:1rem; font-weight:700; color:var(--color-text);">0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA -->
+  <div class="card-panel p-0">
+    <div class="table-responsive" style="max-height:70vh; overflow-y:auto;">
+      <table class="table" id="tablaPrincipal">
+        <thead style="position:sticky; top:0; z-index:10;">
+          <tr>
+            <th style="width:30px;"><input type="checkbox" id="checkAll" class="form-check-input" onchange="toggleTodos(this)"></th>
+            <th style="width:75px;">CUIL</th>
+            <th style="width:65px;">SRT</th>
+            <th style="min-width:140px;">Empleado</th>
+            <th style="min-width:130px;">Estudio</th>
+            <th style="width:90px; text-align:center;">F. Estudio</th>
+            <th style="min-width:160px;">Resultado</th>
+            <th style="min-width:120px;">Obs.</th>
+            <th style="width:30px; text-align:center;" title="Comunicación de Resultados">Com.</th>
+            <th style="width:50px; text-align:center;">Adj.</th>
+            <th style="width:35px; text-align:center;" title="Columna AL: Guardado / Archivado">AL</th>
+            <th style="width:35px; text-align:center;" title="Columna AM: Link a carpeta en Drive">AM</th>
+            <th style="width:40px; text-align:center;">Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tablaBody">
+          <tr><td colspan="13" class="text-center py-3" style="color:var(--color-text-secondary); font-size:0.65rem;"><i class="bi bi-funnel"></i> Filtrar</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE CONFIRMACIÓN DE IMPACTO DE VACÍO -->
+<div id="modalConfirmarVacio" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:10005; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:var(--color-white, #fff); border-radius:10px; max-width:680px; width:100%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 10px 25px rgba(0,0,0,0.3); overflow:hidden; font-family:var(--font-family, sans-serif);">
+    <div style="background:#fee2e2; border-bottom:1px solid #fca5a5; padding:12px 18px; display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626; font-size:1.25rem;"></i>
+        <span style="font-weight:700; color:#991b1b; font-size:1rem;">Atención: Impacto de Enlaces Vacíos</span>
+      </div>
+      <button type="button" onclick="cerrarModalConfirmarVacio()" style="background:none; border:none; color:#991b1b; font-size:1.3rem; cursor:pointer;" title="Cerrar">&times;</button>
+    </div>
+    <div style="padding:16px 20px; overflow-y:auto; flex:1; font-size:0.85rem; color:#334155; line-height:1.45;">
+      <p style="margin-top:0;">
+        Se detectaron <strong id="lblCantCasosVacio" style="color:#dc2626;">0</strong> estudio(s) que ya poseen <strong>Resultado dictaminado o están Guardados</strong>, pero en la hoja externa vienen <strong>sin enlace de PDF</strong>.
+      </p>
+      <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:6px; padding:10px 14px; margin-bottom:14px; font-size:0.8rem; color:#991b1b;">
+        <strong>Si confirma el impacto de vacío:</strong>
+        <ul style="margin:6px 0 0 16px; padding:0;">
+          <li>Se <strong>borrará el Resultado</strong>, la <strong>Asistencia</strong> y el <strong>Guardado</strong> (volverán a quedar pendientes).</li>
+          <li>Los archivos correspondientes en Google Drive serán <strong>renombrados</strong> con el prefijo <code>[DESVINCULADO_fecha]</code>.</li>
+          <li>Se registrará todo el historial forense en la hoja <strong>Bitacora</strong> incluyendo el enlace eliminado.</li>
+        </ul>
+      </div>
+      <div style="font-weight:600; font-size:0.8rem; color:#64748b; margin-bottom:6px;">Detalle de casos detectados (vista previa):</div>
+      <div style="max-height:160px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px;">
+        <table class="table table-sm table-striped" style="font-size:0.75rem; margin-bottom:0;" id="tablaPreviewCasosVacio">
+          <thead style="position:sticky; top:0; background:#f8fafc;">
+            <tr>
+              <th>CUIL</th>
+              <th>Empleado</th>
+              <th>Estudio</th>
+              <th>Resultado</th>
+              <th>Guardado</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyPreviewCasosVacio">
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:12px; margin-bottom:0; font-size:0.8rem; color:#64748b;">
+        ¿Desea confirmar el impacto del vacío y des-auditar estos registros, o prefiere conservar las auditorías existentes?
+      </p>
+    </div>
+    <div style="background:#f8fafc; border-top:1px solid #e2e8f0; padding:12px 18px; display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap;">
+      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="cerrarModalConfirmarVacio()">Cancelar</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="ejecutarSyncConDecision(false)"><i class="bi bi-shield-check"></i> No, conservar auditorías</button>
+      <button type="button" class="btn btn-danger btn-sm" onclick="ejecutarSyncConDecision(true)"><i class="bi bi-trash3-fill"></i> Sí, impactar vacío y des-auditar</button>
+    </div>
+  </div>
+</div>
+
+<button id="btnGuardarTodos" onclick="guardarCambiosMasivos()">
+  <i class="bi bi-floppy-fill"></i> Guardar (<span id="contadorCambios">0</span>)
+</button>
+
+<?!= HtmlService.createHtmlOutputFromFile('AppLogic').getContent(); ?>
+</body>
+</html>

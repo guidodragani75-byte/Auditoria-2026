@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de KPIs y Métricas · Auditoría Médica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #131c31;
+      --surface2: #1e293b;
+      --surface3: #334155;
+      --border: #24324d;
+      --border-subtle: #1e293b;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --cyan: #06b6d4;
+      --cyan-light: rgba(6, 182, 212, 0.12);
+      --blue: #3b82f6;
+      --blue-light: rgba(59, 130, 246, 0.15);
+      --green: #10b981;
+      --green-light: rgba(16, 185, 129, 0.12);
+      --amber: #f59e0b;
+      --amber-light: rgba(245, 158, 11, 0.12);
+      --purple: #8b5cf6;
+      --red: #ef4444;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* OVERLAY LOADER */
+    #overlay {
+      position: fixed; inset: 0;
+      background: rgba(11, 17, 32, 0.85);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px;
+      transition: opacity 0.3s;
+    }
+    .spinner-ring {
+      width: 48px; height: 48px;
+      border: 3px solid rgba(6, 182, 212, 0.2);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin 0.8s linear infinite; display: inline-block; }
+
+    /* HEADER */
+    .kpi-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100; gap: 16px; flex-wrap: wrap;
+    }
+    .logo-area { display: flex; align-items: center; gap: 14px; }
+    .logo-badge {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 1.25rem; font-weight: 800;
+    }
+    .logo-title { font-size: 1.05rem; font-weight: 700; color: #fff; letter-spacing: -0.2px; }
+    .logo-subtitle { font-size: 0.78rem; color: var(--muted); margin-top: 1px; }
+
+    .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .btn-act {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 7px 14px;
+      cursor: pointer; font-size: 0.82rem; font-weight: 500; font-family: inherit;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
+    }
+    .btn-act:hover { background: var(--surface3); color: #fff; border-color: var(--cyan); }
+    .btn-primary-act {
+      background: var(--cyan); border: 1px solid var(--cyan);
+      color: #0b1120; border-radius: 8px; padding: 7px 16px;
+      cursor: pointer; font-size: 0.82rem; font-weight: 700; font-family: inherit;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 7px; text-decoration: none;
+    }
+    .btn-primary-act:hover { background: #0891b2; color: #fff; }
+
+    /* BADGES */
+    .badge-status {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 6px; font-size: 0.74rem; font-weight: 600;
+      background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.25);
+      color: var(--cyan);
+    }
+
+    /* MAIN CONTAINER */
+    .main-wrapper {
+      padding: 24px 28px;
+      max-width: 1680px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* CARDS */
+    .card-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 22px;
+      position: relative;
+    }
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-subtle);
+    }
+    .panel-title {
+      font-size: 0.92rem; font-weight: 700; color: #fff; text-transform: uppercase;
+      letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;
+    }
+    .panel-title i { color: var(--cyan); font-size: 1.1rem; }
+
+    /* KPI METRIC CARDS GRID */
+    .kpis-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(6, 182, 212, 0.4);
+    }
+    .kpi-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .kpi-label { font-size: 0.78rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+    .kpi-icon-wrap {
+      width: 34px; height: 34px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+    }
+    .kpi-val { font-size: 2rem; font-weight: 800; color: #fff; line-height: 1.1; margin-bottom: 12px; }
+
+    .kpi-sub-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+      padding-top: 10px; border-top: 1px solid var(--border-subtle);
+    }
+    .kpi-sub-item { display: flex; flex-direction: column; }
+    .kpi-sub-lbl { font-size: 0.7rem; color: var(--muted); }
+    .kpi-sub-val { font-size: 0.88rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 4px; }
+
+    /* PROGRESS BAR */
+    .bar-wrap { height: 6px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; margin-top: 8px; display: flex; }
+    .bar-fill-con { background: var(--green); height: 100%; transition: width 0.6s ease; }
+    .bar-fill-sin { background: var(--amber); height: 100%; transition: width 0.6s ease; }
+
+    /* TABLES */
+    .table-custom {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      color: var(--text); font-size: 0.84rem;
+    }
+    .table-custom th {
+      background: #0f172a; color: #94a3b8; font-weight: 700; text-transform: uppercase;
+      font-size: 0.72rem; letter-spacing: 0.5px; padding: 12px 14px;
+      border-bottom: 2px solid var(--border); white-space: nowrap;
+    }
+    .table-custom td {
+      padding: 12px 14px; border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+    }
+    .table-custom tbody tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .tr-total {
+      background: rgba(6, 182, 212, 0.08) !important;
+      font-weight: 700;
+    }
+    .tr-total td {
+      border-top: 2px solid var(--cyan) !important;
+      border-bottom: 2px solid var(--cyan) !important;
+      color: #fff;
+    }
+    .tr-con { background: rgba(16, 185, 129, 0.04); }
+    .tr-parc {
+      background: rgba(59, 130, 246, 0.06);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .tr-parc:hover td {
+      background: rgba(59, 130, 246, 0.12) !important;
+    }
+    .tr-sin { background: rgba(245, 158, 11, 0.04); }
+
+    .tag-con {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;
+      background: var(--green-light); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .tag-parc {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;
+      background: var(--blue-light); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4);
+      cursor: pointer; transition: all 0.2s; text-decoration: none;
+    }
+    .tag-parc:hover {
+      background: rgba(59, 130, 246, 0.35); color: #fff; transform: translateY(-1px);
+    }
+    .tag-sin {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;
+      background: var(--amber-light); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+    .tag-total {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 700;
+      background: var(--cyan-light); color: var(--cyan); border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    /* SEARCH INPUT */
+    .search-input {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: #fff; border-radius: 8px; padding: 7px 12px; font-size: 0.82rem;
+      outline: none; transition: border-color 0.2s; min-width: 260px;
+    }
+    .search-input:focus { border-color: var(--cyan); }
+
+    /* MODAL CASOS PARCIALES */
+    .modal-content-custom {
+      background: #0f172a; border: 1px solid var(--border); border-radius: 12px; color: var(--text);
+    }
+    .modal-header-custom {
+      border-bottom: 1px solid var(--border); padding: 16px 20px;
+    }
+    .nav-tabs-custom {
+      border-bottom: 1px solid var(--border); gap: 6px;
+    }
+    .nav-tabs-custom .nav-link {
+      background: transparent; border: none; color: var(--muted);
+      font-weight: 600; font-size: 0.82rem; padding: 8px 16px; border-radius: 8px 8px 0 0;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .nav-tabs-custom .nav-link.active {
+      background: var(--surface); color: var(--cyan); border-bottom: 2px solid var(--cyan);
+    }
+    .nav-tabs-custom .nav-link:hover:not(.active) {
+      color: #fff; background: rgba(255,255,255,0.03);
+    }
+
+    /* FOOTER */
+    .kpi-footer {
+      margin-top: auto; padding: 20px 28px;
+      border-top: 1px solid var(--border);
+      text-align: center; color: var(--muted); font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+
+<!-- OVERLAY LOADER -->
+<div id="overlay">
+  <div class="spinner-ring"></div>
+  <p id="overlayMsg" style="color:#cbd5e1; font-weight:600; font-size:0.88rem;">Cargando métricas y KPIs consolidados...</p>
+</div>
+
+<!-- HEADER -->
+<header class="kpi-header">
+  <div class="logo-area">
+    <div class="logo-badge">
+      <i class="bi bi-pie-chart-fill"></i>
+    </div>
+    <div>
+      <div class="logo-title">Métricas & KPIs Consolidados</div>
+      <div class="logo-subtitle">Auditoría Médica · Asignación y Cobertura de Estudios</div>
+    </div>
+    <span id="lblModoCarga" class="badge-status ms-2">
+      <i class="bi bi-clock-history"></i> <span id="lblModoTexto">Cargando...</span>
+    </span>
+  </div>
+
+  <div class="header-actions">
+    <button id="btnRecalcular" class="btn-primary-act" onclick="recalcularMadre()">
+      <i class="bi bi-lightning-charge-fill"></i> Recalcular desde Madre
+    </button>
+    <button id="btnActualizar" class="btn-act" onclick="cargarKPIs(false)">
+      <i class="bi bi-arrow-clockwise"></i> Actualizar
+    </button>
+    <a href="<?= url ?>" target="_blank" class="btn-act">
+      <i class="bi bi-box-arrow-up-right"></i> Auditoría
+    </a>
+    <a href="<?= urlMadre ?>" target="_blank" class="btn-act">
+      <i class="bi bi-table"></i> Hoja Madre
+    </a>
+  </div>
+</header>
+
+<!-- MAIN CONTENT -->
+<main class="main-wrapper">
+
+  <!-- 4 TARJETAS DE KPIS PRINCIPALES -->
+  <section class="kpis-grid">
+    <!-- 1. ESTUDIOS -->
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-label">Estudios (Filas Totales)</span>
+        <div class="kpi-icon-wrap" style="background:rgba(6,182,212,0.15); color:var(--cyan);">
+          <i class="bi bi-file-earmark-medical-fill"></i>
+        </div>
+      </div>
+      <div class="kpi-val" id="valTotEstudios">-</div>
+      <div class="bar-wrap">
+        <div id="barEstudiosCon" class="bar-fill-con" style="width:0%" title="Con Prestador"></div>
+        <div id="barEstudiosSin" class="bar-fill-sin" style="width:0%" title="Sin Prestador"></div>
+      </div>
+      <div class="kpi-sub-grid mt-2">
+        <div class="kpi-sub-item">
+          <span class="kpi-sub-lbl">Con Prestador (O)</span>
+          <span class="kpi-sub-val" style="color:var(--green);" id="valEstudiosCon">-</span>
+        </div>
+        <div class="kpi-sub-item">
+          <span class="kpi-sub-lbl">Sin Prestador (O)</span>
+          <span class="kpi-sub-val" style="color:var(--amber);" id="valEstudiosSin">-</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. EMPLEADOS AN -->
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-label">Empleados Únicos (Col. AN)</span>
+        <div class="kpi-icon-wrap" style="background:rgba(59,130,246,0.15); color:var(--blue);">
+          <i class="bi bi-people-fill"></i>
+        </div>
+      </div>
+      <div class="kpi-val" id="valTotEmpleados">-</div>
+      <div class="bar-wrap">
+        <div id="barEmpleadosCon" class="bar-fill-con" style="width:0%" title="En filas con Prestador"></div>
+        <div id="barEmpleadosSin" class="bar-fill-sin" style="width:0%" title="En filas sin Prestador"></div>
+      </div>
+      <div class="kpi-sub-grid mt-2">
+        <div class="kpi-sub-item">
+          <span class="kpi-sub-lbl">100% Asignados</span>
+          <span class="kpi-sub-val" style="color:var(--green);" id="valEmpleados100">-</span>
+        </div>
+        <div class="kpi-sub-item">
+          <span class="kpi-sub-lbl">Parciales / Mixtos</span>
+          <span class="kpi-sub-val" style="color:#60a5fa;" id="valEmpleadosParc">-</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. ESTABLECIMIENTOS H -->
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-label">Establecimientos (Col. H)</span>
+        <div class="kpi-icon-wrap" style="background:rgba(16,185,129,0.15); color:var(--green);">
+          <i class="bi bi-geo-alt-fill"></i>
+        </div>
+      </div>
+      <div class="kpi-val" id="valTotEstabs">-</div>
+      <div class="bar-wrap">
+        <div id="barEstabsCon" class="bar-fill-con" style="width:0%" title="100% Con Prestador"></div>
+        <div id="barEstabsSin" class="bar-fill-sin" style="width:0%" title="Sin Prestador"></div>
+      </div>
+      <div class="kpi-sub-grid mt-2">
+        <div class="kpi-sub-item">
+          <span class="kpi-sub-lbl">100% Asignados</span>
+          <span class="kpi-sub-val" style="color:var(--green);" id="valEstabs100">-</span>
+        </div>
+        <div class="kpi-sub-item">
+          <span class="kpi-sub-lbl">Parciales (Con y Sin)</span>
+          <span class="kpi-sub-val" style="color:#60a5fa;" id="valEstabsParc">-</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. EMPRESAS C -->
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-label">Empresas / Contratos (Col. C)</span>
+        <div class="kpi-icon-wrap" style="background:rgba(245,158,11,0.15); color:var(--amber);">
+          <i class="bi bi-buildings-fill"></i>
+        </div>
+      </div>
+      <div class="kpi-val" id="valTotEmpresas">-</div>
+      <div class="bar-wrap">
+        <div id="barEmpresasCon" class="bar-fill-con" style="width:0%" title="100% Con Prestador"></div>
+        <div id="barEmpresasSin" class="bar-fill-sin" style="width:0%" title="Sin Prestador"></div>
+      </div>
+      <div class="kpi-sub-grid mt-2">
+        <div class="kpi-sub-item">
+          <span class="kpi-sub-lbl">100% Asignadas</span>
+          <span class="kpi-sub-val" style="color:var(--green);" id="valEmpresas100">-</span>
+        </div>
+        <div class="kpi-sub-item">
+          <span class="kpi-sub-lbl">Parciales (Con y Sin)</span>
+          <span class="kpi-sub-val" style="color:#60a5fa;" id="valEmpresasParc">-</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 1: TABLA COMPARATIVA PRINCIPAL (100% CUADRADA) -->
+  <section class="card-panel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <i class="bi bi-table"></i>
+        <span>Resumen Comparativo Consolidado (100% Cuadrado por Entidad)</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span class="badge" style="background:var(--blue-light); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); cursor:pointer;" onclick="abrirModalParciales('estabs')">
+          <i class="bi bi-cursor-fill me-1"></i> Clic en "Parciales" para ver casos
+        </span>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table-custom">
+        <thead>
+          <tr>
+            <th>Segmento / Condición</th>
+            <th class="text-end">Estudios (Filas)</th>
+            <th class="text-end">% Estudios</th>
+            <th class="text-end">Empleados (AN)</th>
+            <th class="text-end">% Empleados</th>
+            <th class="text-end">Establecimientos (H)</th>
+            <th class="text-end">% Estab.</th>
+            <th class="text-end">Empresas (C)</th>
+            <th class="text-end">% Empresas</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyComparativa">
+          <!-- Renderizado dinámico -->
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:0.75rem; color:var(--muted); margin-top:10px; display:flex; align-items:center; gap:6px;">
+      <i class="bi bi-info-circle-fill text-cyan"></i>
+      <span>La suma de las filas <strong>100% Con Prestador</strong> + <strong>Parciales</strong> + <strong>100% Sin Prestador</strong> da exactamente el <strong>100.0%</strong> en cada columna. Haz clic en la fila <strong>Parciales</strong> para inspeccionar los casos específicos.</span>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 2: DETALLE POR PRESTADOR ASIGNADO -->
+  <section class="card-panel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <i class="bi bi-hospital"></i>
+        <span>Detalle por Prestador Asignado</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <input type="text" id="filtroPrestador" class="search-input" placeholder="Buscar prestador..." oninput="filtrarPrestadores()">
+        <button class="btn-act" onclick="exportarCSV()">
+          <i class="bi bi-download"></i> CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table-custom">
+        <thead>
+          <tr>
+            <th>Prestador</th>
+            <th class="text-end">Estudios (Filas)</th>
+            <th class="text-end">% s/ Total Estudios</th>
+            <th class="text-end">Empleados Únicos (AN)</th>
+            <th class="text-end">% Cobertura Empleados</th>
+            <th class="text-end">Establecimientos (H)</th>
+            <th class="text-end">Empresas (C)</th>
+            <th class="text-end">Promedio Estudios/Emp</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyPrestadores">
+          <!-- Renderizado dinámico -->
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- MODAL DRILL-DOWN: CASOS PARCIALES -->
+<div class="modal fade" id="modalCasosParciales" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content modal-content-custom">
+      <div class="modal-header modal-header-custom d-flex justify-content-between align-items-center">
+        <div>
+          <h5 class="modal-title fw-bold text-white d-flex align-items-center gap-2">
+            <i class="bi bi-pie-chart-fill text-cyan"></i>
+            <span>Detalle de Casos Parciales (Con y Sin Prestador)</span>
+          </h5>
+          <p class="text-muted mb-0" style="font-size:0.76rem;">Entidades que tienen tanto estudios asignados a prestadores como estudios pendientes sin asignar.</p>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body p-3">
+        <!-- TABS -->
+        <ul class="nav nav-tabs nav-tabs-custom mb-3" id="tabsParciales" role="tablist">
+          <li class="nav-item">
+            <button class="nav-link active" id="tab-estabs" onclick="cambiarTabParcial('estabs')">
+              <i class="bi bi-geo-alt-fill me-1"></i> Establecimientos (<span id="countEstabsParc">0</span>)
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="tab-empresas" onclick="cambiarTabParcial('empresas')">
+              <i class="bi bi-buildings-fill me-1"></i> Empresas (<span id="countEmpresasParc">0</span>)
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="tab-empleados" onclick="cambiarTabParcial('empleados')">
+              <i class="bi bi-people-fill me-1"></i> Empleados AN (<span id="countEmpleadosParc">0</span>)
+            </button>
+          </li>
+        </ul>
+
+        <!-- CONTROLES FILTRO Y EXPORTAR -->
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <input type="text" id="filtroModal" class="search-input" placeholder="Filtrar por código, nombre o prestador..." oninput="filtrarModalCasos()">
+          <button class="btn-act" onclick="exportarCSVModal()">
+            <i class="bi bi-download"></i> Exportar Casos (CSV)
+          </button>
+        </div>
+
+        <!-- TABLA CONTENIDO -->
+        <div class="table-responsive" style="max-height: 480px;">
+          <table class="table-custom" id="tablaModalCasos">
+            <thead id="theadModal"></thead>
+            <tbody id="tbodyModal"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer border-top border-secondary p-2 d-flex justify-content-between">
+        <span id="lblInfoModal" style="font-size:0.75rem; color:var(--muted);">Mostrando casos</span>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="kpi-footer">
+  Auditoría Médica · GRV Grupo Río Varadero &copy; 2026 · Panel de Métricas & KPIs
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+  let kpisData = null;
+  let tabActualModal = 'estabs';
+  let modalBs = null;
+
+  window.addEventListener('DOMContentLoaded', () => {
+    modalBs = new bootstrap.Modal(document.getElementById('modalCasosParciales'));
+    try {
+      const rawInitial = <?!= (typeof initialData !== 'undefined' && initialData) ? initialData : '{}' ?>;
+      if (rawInitial && rawInitial.totales && rawInitial.totales.estudios > 0) {
+        kpisData = rawInitial;
+        renderTodo(kpisData);
+        ocultarLoader();
+      } else {
+        cargarKPIs(false);
+      }
+    } catch(e) {
+      cargarKPIs(false);
+    }
+  });
+
+  function mostrarLoader(msg) {
+    document.getElementById('overlayMsg').innerText = msg || 'Cargando...';
+    document.getElementById('overlay').style.display = 'flex';
+  }
+
+  function ocultarLoader() {
+    document.getElementById('overlay').style.display = 'none';
+  }
+
+  function cargarKPIs(forzar) {
+    mostrarLoader(forzar ? 'Escaneando base Madre (90k filas)...' : 'Obteniendo métricas consolidadas...');
+    google.script.run
+      .withSuccessHandler((res) => {
+        ocultarLoader();
+        if (res && res.totales) {
+          kpisData = res;
+          renderTodo(kpisData);
+        } else {
+          alert('No se pudieron obtener las métricas de KPIs.');
+        }
+      })
+      .withFailureHandler((err) => {
+        ocultarLoader();
+        alert('Error al cargar métricas: ' + err.message);
+      })
+      .obtenerMetricasKPIs(Boolean(forzar));
+  }
+
+  function recalcularMadre() {
+    if (!confirm('¿Deseas recalcular las métricas escaneando toda la base Madre? Esto puede demorar unos segundos.')) return;
+    mostrarLoader('Recalculando métricas completas desde Madre...');
+    google.script.run
+      .withSuccessHandler((res) => {
+        ocultarLoader();
+        if (res && res.totales) {
+          kpisData = res;
+          renderTodo(kpisData);
+        } else {
+          alert('Error al recalcular desde Madre.');
+        }
+      })
+      .withFailureHandler((err) => {
+        ocultarLoader();
+        alert('Error al recalcular: ' + err.message);
+      })
+      .recalcularKPIsDesdeMadre();
+  }
+
+  function fmtNum(n) {
+    if (n === undefined || n === null || isNaN(n)) return '0';
+    return Number(n).toLocaleString('es-AR');
+  }
+
+  function renderTodo(d) {
+    if (!d || !d.totales) return;
+
+    const tot  = d.totales || {};
+    const asig = d.asignados100 || {};
+    const parc = d.parciales || {};
+    const sin  = d.sinAsignar100 || {};
+    const casos = d.casosParciales || {};
+
+    // 1. Badge de modo de carga
+    const lblModo = document.getElementById('lblModoTexto');
+    let origenTxt = 'Caché';
+    if (d.origen === 'hoja_kpis') origenTxt = 'Hoja KPIs (<0.2s)';
+    else if (d.origen === 'hoja_madre') origenTxt = 'Recálculo Madre (' + (d.tiempoMs ? (d.tiempoMs / 1000).toFixed(1) + 's' : '') + ')';
+    lblModo.innerText = origenTxt + ' · ' + (d.timestamp || '');
+
+    // 2. Tarjetas de KPIs Principales
+    document.getElementById('valTotEstudios').innerText = fmtNum(tot.estudios);
+    document.getElementById('valEstudiosCon').innerText = fmtNum(asig.estudios) + ' (' + (asig.pctEstudios || 0) + '%)';
+    document.getElementById('valEstudiosSin').innerText = fmtNum(sin.estudios) + ' (' + (sin.pctEstudios || 0) + '%)';
+    document.getElementById('barEstudiosCon').style.width = (asig.pctEstudios || 0) + '%';
+    document.getElementById('barEstudiosSin').style.width = (sin.pctEstudios || 0) + '%';
+
+    document.getElementById('valTotEmpleados').innerText = fmtNum(tot.empleadosAN);
+    document.getElementById('valEmpleados100').innerText = fmtNum(asig.empleadosAN) + ' (' + (asig.pctEmpleados || 0) + '%)';
+    document.getElementById('valEmpleadosParc').innerText = fmtNum(parc.empleadosAN) + ' (' + (parc.pctEmpleados || 0) + '%)';
+    document.getElementById('barEmpleadosCon').style.width = (asig.pctEmpleados || 0) + '%';
+    document.getElementById('barEmpleadosSin').style.width = (sin.pctEmpleados || 0) + '%';
+
+    document.getElementById('valTotEstabs').innerText = fmtNum(tot.establecimientosH);
+    document.getElementById('valEstabs100').innerText = fmtNum(asig.establecimientosH) + ' (' + (asig.pctEstablecimientos || 0) + '%)';
+    document.getElementById('valEstabsParc').innerText = fmtNum(parc.establecimientosH) + ' (' + (parc.pctEstablecimientos || 0) + '%)';
+    document.getElementById('barEstabsCon').style.width = (asig.pctEstablecimientos || 0) + '%';
+    document.getElementById('barEstabsSin').style.width = (sin.pctEstablecimientos || 0) + '%';
+
+    document.getElementById('valTotEmpresas').innerText = fmtNum(tot.empresasC);
+    document.getElementById('valEmpresas100').innerText = fmtNum(asig.empresasC) + ' (' + (asig.pctEmpresas || 0) + '%)';
+    document.getElementById('valEmpresasParc').innerText = fmtNum(parc.empresasC) + ' (' + (parc.pctEmpresas || 0) + '%)';
+    document.getElementById('barEmpresasCon').style.width = (asig.pctEmpresas || 0) + '%';
+    document.getElementById('barEmpresasSin').style.width = (sin.pctEmpresas || 0) + '%';
+
+    // 3. Tabla Comparativa Principal (100% Cuadrada)
+    const tbodyComp = document.getElementById('tbodyComparativa');
+    tbodyComp.innerHTML = `
+      <tr class="tr-total">
+        <td><span class="tag-total"><i class="bi bi-database-fill me-1"></i> TOTAL GENERAL CONSOLIDADO</span></td>
+        <td class="text-end font-monospace fw-bold">${fmtNum(tot.estudios)}</td>
+        <td class="text-end fw-bold">100.0%</td>
+        <td class="text-end font-monospace fw-bold">${fmtNum(tot.empleadosAN)}</td>
+        <td class="text-end fw-bold">100.0%</td>
+        <td class="text-end font-monospace fw-bold">${fmtNum(tot.establecimientosH)}</td>
+        <td class="text-end fw-bold">100.0%</td>
+        <td class="text-end font-monospace fw-bold">${fmtNum(tot.empresasC)}</td>
+        <td class="text-end fw-bold">100.0%</td>
+      </tr>
+      <tr class="tr-con">
+        <td><span class="tag-con"><i class="bi bi-check-circle-fill me-1"></i> 100% CON PRESTADOR (Asignados)</span></td>
+        <td class="text-end font-monospace">${fmtNum(asig.estudios)}</td>
+        <td class="text-end fw-semibold text-success">${asig.pctEstudios || 0}%</td>
+        <td class="text-end font-monospace">${fmtNum(asig.empleadosAN)}</td>
+        <td class="text-end fw-semibold text-success">${asig.pctEmpleados || 0}%</td>
+        <td class="text-end font-monospace">${fmtNum(asig.establecimientosH)}</td>
+        <td class="text-end fw-semibold text-success">${asig.pctEstablecimientos || 0}%</td>
+        <td class="text-end font-monospace">${fmtNum(asig.empresasC)}</td>
+        <td class="text-end fw-semibold text-success">${asig.pctEmpresas || 0}%</td>
+      </tr>
+      <tr class="tr-parc" onclick="abrirModalParciales('estabs')" title="Haz clic aquí para ver el detalle de los casos parciales">
+        <td>
+          <span class="tag-parc"><i class="bi bi-pie-chart-fill me-1"></i> PARCIALES / MIXTOS (Con y Sin Prestador)</span>
+          <span class="badge bg-primary ms-1" style="font-size:0.65rem;">Ver casos</span>
+        </td>
+        <td class="text-end font-monospace text-muted">-</td>
+        <td class="text-end text-muted">-</td>
+        <td class="text-end font-monospace">
+          <span class="tag-parc" onclick="event.stopPropagation(); abrirModalParciales('empleados')">
+            ${fmtNum(parc.empleadosAN)} <i class="bi bi-eye ms-1"></i>
+          </span>
+        </td>
+        <td class="text-end fw-semibold text-primary">${parc.pctEmpleados || 0}%</td>
+        <td class="text-end font-monospace">
+          <span class="tag-parc" onclick="event.stopPropagation(); abrirModalParciales('estabs')">
+            ${fmtNum(parc.establecimientosH)} <i class="bi bi-eye ms-1"></i>
+          </span>
+        </td>
+        <td class="text-end fw-semibold text-primary">${parc.pctEstablecimientos || 0}%</td>
+        <td class="text-end font-monospace">
+          <span class="tag-parc" onclick="event.stopPropagation(); abrirModalParciales('empresas')">
+            ${fmtNum(parc.empresasC)} <i class="bi bi-eye ms-1"></i>
+          </span>
+        </td>
+        <td class="text-end fw-semibold text-primary">${parc.pctEmpresas || 0}%</td>
+      </tr>
+      <tr class="tr-sin">
+        <td><span class="tag-sin"><i class="bi bi-x-circle-fill me-1"></i> 100% SIN PRESTADOR (Sin Asignar)</span></td>
+        <td class="text-end font-monospace">${fmtNum(sin.estudios)}</td>
+        <td class="text-end fw-semibold text-warning">${sin.pctEstudios || 0}%</td>
+        <td class="text-end font-monospace">${fmtNum(sin.empleadosAN)}</td>
+        <td class="text-end fw-semibold text-warning">${sin.pctEmpleados || 0}%</td>
+        <td class="text-end font-monospace">${fmtNum(sin.establecimientosH)}</td>
+        <td class="text-end fw-semibold text-warning">${sin.pctEstablecimientos || 0}%</td>
+        <td class="text-end font-monospace">${fmtNum(sin.empresasC)}</td>
+        <td class="text-end fw-semibold text-warning">${sin.pctEmpresas || 0}%</td>
+      </tr>
+    `;
+
+    // 4. Counts en el modal
+    document.getElementById('countEstabsParc').innerText = (casos.establecimientos ? casos.establecimientos.length : parc.establecimientosH || 0);
+    document.getElementById('countEmpresasParc').innerText = (casos.empresas ? casos.empresas.length : parc.empresasC || 0);
+    document.getElementById('countEmpleadosParc').innerText = (casos.empleados ? casos.empleados.length : parc.empleadosAN || 0);
+
+    // 5. Tabla de Prestadores
+    renderTablaPrestadores(d.prestadores || []);
+  }
+
+  function renderTablaPrestadores(lista) {
+    const tbody = document.getElementById('tbodyPrestadores');
+    if (!lista || lista.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No hay prestadores registrados.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = lista.map((p) => `
+      <tr>
+        <td>
+          <div style="font-weight:600; color:#fff;">${escapeHtml(p.nombre)}</div>
+        </td>
+        <td class="text-end font-monospace fw-semibold">${fmtNum(p.estudios)}</td>
+        <td class="text-end text-cyan">${p.pctEstudios || 0}%</td>
+        <td class="text-end font-monospace">${fmtNum(p.empleadosAN)}</td>
+        <td class="text-end text-success">${p.pctEmpleados || 0}%</td>
+        <td class="text-end font-monospace">${fmtNum(p.establecimientosH)}</td>
+        <td class="text-end font-monospace">${fmtNum(p.empresasC)}</td>
+        <td class="text-end font-monospace text-muted">${(p.promEstudiosPorEmpleado || 0).toFixed(2)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function filtrarPrestadores() {
+    if (!kpisData || !kpisData.prestadores) return;
+    const term = (document.getElementById('filtroPrestador').value || '').toLowerCase().trim();
+    if (!term) {
+      renderTablaPrestadores(kpisData.prestadores);
+      return;
+    }
+    const filtrados = kpisData.prestadores.filter(p => (p.nombre || '').toLowerCase().includes(term));
+    renderTablaPrestadores(filtrados);
+  }
+
+  // ==========================================
+  // MODAL CASOS PARCIALES
+  // ==========================================
+  function abrirModalParciales(tipo) {
+    tabActualModal = tipo || 'estabs';
+    cambiarTabParcial(tabActualModal);
+    document.getElementById('filtroModal').value = '';
+    modalBs.show();
+  }
+
+  function cambiarTabParcial(tipo) {
+    tabActualModal = tipo;
+    document.getElementById('tab-estabs').classList.toggle('active', tipo === 'estabs');
+    document.getElementById('tab-empresas').classList.toggle('active', tipo === 'empresas');
+    document.getElementById('tab-empleados').classList.toggle('active', tipo === 'empleados');
+    filtrarModalCasos();
+  }
+
+  function filtrarModalCasos() {
+    if (!kpisData || !kpisData.casosParciales) return;
+    const term = (document.getElementById('filtroModal').value || '').toLowerCase().trim();
+    const casos = kpisData.casosParciales || {};
+
+    const thead = document.getElementById('theadModal');
+    const tbody = document.getElementById('tbodyModal');
+    const lblInfo = document.getElementById('lblInfoModal');
+
+    if (tabActualModal === 'estabs') {
+      thead.innerHTML = `
+        <tr>
+          <th>Código SRT</th>
+          <th>Establecimiento</th>
+          <th>Empresa / CUIT</th>
+          <th class="text-end">Estudios Totales</th>
+          <th class="text-end text-success">Con Prestador</th>
+          <th class="text-end text-warning">Sin Prestador</th>
+          <th class="text-end">% Asignado</th>
+          <th>Prestadores Asignados</th>
+        </tr>
+      `;
+      let lista = casos.establecimientos || [];
+      if (term) {
+        lista = lista.filter(e => 
+          (e.srt || '').toLowerCase().includes(term) ||
+          (e.nombre || '').toLowerCase().includes(term) ||
+          (e.cuit || '').toLowerCase().includes(term) ||
+          (e.nombreEmpresa || '').toLowerCase().includes(term) ||
+          (e.prestadores || '').toLowerCase().includes(term)
+        );
+      }
+      lblInfo.innerText = `Mostrando ${lista.length} de ${casos.establecimientos ? casos.establecimientos.length : 0} establecimientos parciales`;
+
+      if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No se encontraron establecimientos parciales.</td></tr>';
+      } else {
+        tbody.innerHTML = lista.map(e => `
+          <tr>
+            <td class="font-monospace fw-bold text-cyan">${escapeHtml(e.srt)}</td>
+            <td style="font-weight:600; color:#fff;">${escapeHtml(e.nombre || 'Sin Nombre')}</td>
+            <td class="text-muted" style="font-size:0.75rem;">${escapeHtml(e.nombreEmpresa)} (${escapeHtml(e.cuit)})</td>
+            <td class="text-end font-monospace fw-bold">${fmtNum(e.total)}</td>
+            <td class="text-end font-monospace text-success fw-bold">${fmtNum(e.con)}</td>
+            <td class="text-end font-monospace text-warning fw-bold">${fmtNum(e.sin)}</td>
+            <td class="text-end font-monospace text-cyan fw-bold">${e.pctCon}%</td>
+            <td style="font-size:0.75rem; color:#cbd5e1;">${escapeHtml(e.prestadores || 'Sin asignar')}</td>
+          </tr>
+        `).join('');
+      }
+    } else if (tabActualModal === 'empresas') {
+      thead.innerHTML = `
+        <tr>
+          <th>CUIT Contrato</th>
+          <th>Empresa / Contrato</th>
+          <th class="text-end">Estudios Totales</th>
+          <th class="text-end text-success">Con Prestador</th>
+          <th class="text-end text-warning">Sin Prestador</th>
+          <th class="text-end">% Asignado</th>
+          <th>Prestadores Asignados</th>
+        </tr>
+      `;
+      let lista = casos.empresas || [];
+      if (term) {
+        lista = lista.filter(e => 
+          (e.cuit || '').toLowerCase().includes(term) ||
+          (e.nombre || '').toLowerCase().includes(term) ||
+          (e.prestadores || '').toLowerCase().includes(term)
+        );
+      }
+      lblInfo.innerText = `Mostrando ${lista.length} de ${casos.empresas ? casos.empresas.length : 0} empresas parciales`;
+
+      if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron empresas parciales.</td></tr>';
+      } else {
+        tbody.innerHTML = lista.map(e => `
+          <tr>
+            <td class="font-monospace fw-bold text-cyan">${escapeHtml(e.cuit)}</td>
+            <td style="font-weight:600; color:#fff;">${escapeHtml(e.nombre)}</td>
+            <td class="text-end font-monospace fw-bold">${fmtNum(e.total)}</td>
+            <td class="text-end font-monospace text-success fw-bold">${fmtNum(e.con)}</td>
+            <td class="text-end font-monospace text-warning fw-bold">${fmtNum(e.sin)}</td>
+            <td class="text-end font-monospace text-cyan fw-bold">${e.pctCon}%</td>
+            <td style="font-size:0.75rem; color:#cbd5e1;">${escapeHtml(e.prestadores || 'Sin asignar')}</td>
+          </tr>
+        `).join('');
+      }
+    } else if (tabActualModal === 'empleados') {
+      thead.innerHTML = `
+        <tr>
+          <th>Clave Empleado (AN)</th>
+          <th>CUIL</th>
+          <th>Apellido y Nombre</th>
+          <th>SRT</th>
+          <th class="text-end">Estudios</th>
+          <th class="text-end text-success">Con Prest.</th>
+          <th class="text-end text-warning">Sin Prest.</th>
+          <th class="text-end">% Asignado</th>
+          <th>Prestadores</th>
+        </tr>
+      `;
+      let lista = casos.empleados || [];
+      if (term) {
+        lista = lista.filter(e => 
+          (e.an || '').toLowerCase().includes(term) ||
+          (e.cuil || '').toLowerCase().includes(term) ||
+          (e.nombre || '').toLowerCase().includes(term) ||
+          (e.srt || '').toLowerCase().includes(term) ||
+          (e.prestadores || '').toLowerCase().includes(term)
+        );
+      }
+      lblInfo.innerText = `Mostrando ${lista.length} de ${casos.empleados ? casos.empleados.length : 0} empleados parciales`;
+
+      if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No se encontraron empleados parciales en este segmento.</td></tr>';
+      } else {
+        tbody.innerHTML = lista.map(e => `
+          <tr>
+            <td class="font-monospace text-cyan" style="font-size:0.75rem;">${escapeHtml(e.an)}</td>
+            <td class="font-monospace">${escapeHtml(e.cuil)}</td>
+            <td style="font-weight:600; color:#fff;">${escapeHtml(e.nombre || '-')}</td>
+            <td class="font-monospace">${escapeHtml(e.srt)}</td>
+            <td class="text-end font-monospace fw-bold">${fmtNum(e.total)}</td>
+            <td class="text-end font-monospace text-success fw-bold">${fmtNum(e.con)}</td>
+            <td class="text-end font-monospace text-warning fw-bold">${fmtNum(e.sin)}</td>
+            <td class="text-end font-monospace text-cyan fw-bold">${e.pctCon}%</td>
+            <td style="font-size:0.75rem; color:#cbd5e1;">${escapeHtml(e.prestadores || 'Sin asignar')}</td>
+          </tr>
+        `).join('');
+      }
+    }
+  }
+
+  function exportarCSVModal() {
+    if (!kpisData || !kpisData.casosParciales) return;
+    const casos = kpisData.casosParciales || {};
+    let headers = [];
+    let rows = [];
+    let filename = '';
+
+    if (tabActualModal === 'estabs') {
+      headers = ["Codigo_SRT", "Establecimiento", "CUIT_Empresa", "Empresa", "Estudios_Totales", "Con_Prestador", "Sin_Prestador", "Pct_Asignado", "Prestadores"];
+      rows = (casos.establecimientos || []).map(e => [
+        `"${e.srt}"`, `"${(e.nombre||'').replace(/"/g, '""')}"`, `"${e.cuit}"`, `"${(e.nombreEmpresa||'').replace(/"/g, '""')}"`,
+        e.total, e.con, e.sin, e.pctCon, `"${(e.prestadores||'').replace(/"/g, '""')}"`
+      ]);
+      filename = `Establecimientos_Parciales_${new Date().toISOString().slice(0,10)}.csv`;
+    } else if (tabActualModal === 'empresas') {
+      headers = ["CUIT_Contrato", "Empresa", "Estudios_Totales", "Con_Prestador", "Sin_Prestador", "Pct_Asignado", "Prestadores"];
+      rows = (casos.empresas || []).map(e => [
+        `"${e.cuit}"`, `"${(e.nombre||'').replace(/"/g, '""')}"`,
+        e.total, e.con, e.sin, e.pctCon, `"${(e.prestadores||'').replace(/"/g, '""')}"`
+      ]);
+      filename = `Empresas_Parciales_${new Date().toISOString().slice(0,10)}.csv`;
+    } else if (tabActualModal === 'empleados') {
+      headers = ["Clave_AN", "CUIL", "Nombre", "SRT", "Estudios_Totales", "Con_Prestador", "Sin_Prestador", "Pct_Asignado", "Prestadores"];
+      rows = (casos.empleados || []).map(e => [
+        `"${e.an}"`, `"${e.cuil}"`, `"${(e.nombre||'').replace(/"/g, '""')}"`, `"${e.srt}"`,
+        e.total, e.con, e.sin, e.pctCon, `"${(e.prestadores||'').replace(/"/g, '""')}"`
+      ]);
+      filename = `Empleados_Parciales_${new Date().toISOString().slice(0,10)}.csv`;
+    }
+
+    const csvContent = "\uFEFF" + [headers.join(';')].concat(rows.map(r => r.join(';'))).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+  }
+
+  function exportarCSV() {
+    if (!kpisData || !kpisData.prestadores || kpisData.prestadores.length === 0) {
+      alert('No hay datos para exportar.');
+      return;
+    }
+    const headers = ["Prestador", "Estudios", "% Estudios", "Empleados AN", "% Empleados", "Establecimientos H", "Empresas C", "Promedio Estudios/Empleado"];
+    const rows = kpisData.prestadores.map(p => [
+      `"${p.nombre.replace(/"/g, '""')}"`,
+      p.estudios,
+      p.pctEstudios,
+      p.empleadosAN,
+      p.pctEmpleados,
+      p.establecimientosH,
+      p.empresasC,
+      p.promEstudiosPorEmpleado
+    ]);
+    const csvContent = "\uFEFF" + [headers.join(';')].concat(rows.map(e => e.join(';'))).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `KPIs_Prestadores_${new Date().toISOString().slice(0,10)}.csv`;
+    link.click();
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+
+</body>
+</html>

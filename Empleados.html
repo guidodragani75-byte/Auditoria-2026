@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Empleados Auditados · Auditoría Médica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0b1120;
+      --surface:  #111827;
+      --surface2: #1a2236;
+      --border:   #1e2d45;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --blue:     #3b82f6;
+      --green:    #10b981;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --cyan:     #06b6d4;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); font-size:.82rem; min-height:100vh; }
+
+    /* LOADING */
+    #overlay { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; gap:16px; }
+    .spinner { width:44px; height:44px; border:3px solid var(--border); border-top-color:var(--cyan); border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .spin { animation:spin .8s linear infinite; display:inline-block; }
+    #overlay p { color:var(--muted); font-size:.8rem; }
+
+    /* HEADER */
+    .dash-header { background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%); border-bottom:1px solid var(--border); padding:14px 28px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; gap:12px; flex-wrap:wrap; }
+    .logo { display:flex; align-items:center; gap:12px; }
+    .logo-icon { width:36px; height:36px; background:linear-gradient(135deg,var(--blue),var(--cyan)); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:#fff; }
+    .logo-title { font-size:.95rem; font-weight:700; color:#fff; }
+    .logo-sub   { font-size:.6rem; color:var(--muted); margin-top:1px; }
+    .header-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+    .btn-head { background:var(--surface2); border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:6px 14px; cursor:pointer; font-size:.72rem; font-family:inherit; transition:all .2s; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+    .btn-head:hover { background:var(--border); color:var(--text); }
+    .btn-primary-head { background:var(--blue); border:1px solid var(--blue); color:#fff; border-radius:8px; padding:6px 14px; cursor:pointer; font-size:.72rem; font-weight:600; font-family:inherit; transition:all .2s; display:inline-flex; align-items:center; gap:6px; }
+    .btn-primary-head:hover { background:#2563eb; }
+    .btn-primary-head:disabled { opacity:0.5; cursor:not-allowed; }
+
+    /* BODY & PANEL LATERAL LAYOUT */
+    .dash-body-layout {
+      display: flex;
+      gap: 16px;
+      padding: 16px 24px;
+      max-width: 1750px;
+      margin: 0 auto;
+      align-items: flex-start;
+      transition: all .25s ease;
+    }
+
+    /* PANEL LATERAL DE INDICADORES Y FILTROS (DERECHA) */
+    .panel-lateral {
+      width: 290px;
+      min-width: 290px;
+      order: 2;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: width .25s cubic-bezier(0.4, 0, 0.2, 1), min-width .25s, opacity .2s, padding .2s, margin .2s;
+      position: sticky;
+      top: 70px;
+      max-height: calc(100vh - 90px);
+      overflow-y: auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    }
+    .panel-lateral.collapsed {
+      width: 0;
+      min-width: 0;
+      padding: 0;
+      margin: 0;
+      border: none;
+      opacity: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .panel-lateral-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+    }
+    .panel-cards-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .metric-filter-card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 8px 12px;
+      cursor: pointer;
+      transition: all .16s ease;
+      user-select: none;
+      position: relative;
+    }
+    .metric-filter-card:hover {
+      background: rgba(30, 45, 69, 0.7);
+      border-color: rgba(6, 182, 212, 0.4);
+      transform: translateY(-1px);
+    }
+    .metric-filter-card.active {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1.5px solid var(--cyan);
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+    }
+    .mcard-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+    }
+    .mcard-val {
+      font-size: 1.25rem;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+    .mcard-icon {
+      font-size: 1.05rem;
+      opacity: 0.8;
+    }
+    .mcard-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .mcard-sub {
+      font-size: 0.61rem;
+      color: var(--muted);
+      line-height: 1.2;
+      margin-top: 1px;
+    }
+
+    .dash-main-area {
+      flex: 1;
+      min-width: 0;
+      order: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* PROGRESS BAR PANEL */
+    #progresoArchivadoPanel { display:none; background:var(--surface2); border:1px solid var(--blue); border-radius:10px; padding:12px 18px; margin-bottom:16px; }
+    .prog-text { display:flex; justify-content:space-between; font-size:0.75rem; font-weight:600; margin-bottom:6px; }
+    .prog-bar-container { width:100%; height:8px; background:var(--surface); border-radius:4px; overflow:hidden; }
+    .prog-bar-fill { height:100%; width:0%; background:linear-gradient(90deg, var(--blue), var(--cyan)); transition:width .3s ease; }
+
+    /* FILTERS */
+    .filter-bar { display:flex; gap:10px; margin-bottom:14px; align-items:center; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 14px; }
+    .filter-select { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 12px; font-size:.75rem; font-family:inherit; cursor:pointer; min-width:170px; }
+    .filter-select:focus { outline:none; border-color:var(--blue); }
+    .search-input { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 14px; font-size:.75rem; font-family:inherit; flex:1; min-width:220px; }
+    .search-input:focus { outline:none; border-color:var(--blue); }
+    .search-input::placeholder { color:var(--muted); }
+
+    /* TABLE */
+    .table-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .table-scroll { overflow-x:auto; max-height:70vh; overflow-y:auto; }
+    table.emp-table { width:100%; border-collapse:collapse; font-size:.74rem; }
+    table.emp-table thead th { background:var(--surface2); padding:10px 12px; text-align:left; font-size:.6rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); white-space:nowrap; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:5; }
+    table.emp-table thead th.center { text-align:center; }
+    table.emp-table tbody tr.emp-row { border-bottom:1px solid rgba(30,45,69,.5); transition:background .15s; }
+    table.emp-table tbody tr.emp-row:hover { background:rgba(30,45,69,.35); }
+    table.emp-table td { padding:9px 12px; vertical-align:middle; }
+
+    /* BADGES */
+    .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:.65rem; font-weight:700; letter-spacing:.3px; }
+    .badge-ok { background:rgba(16,185,129,.15); color:var(--green); border:1px solid rgba(16,185,129,.3); }
+    .badge-warn { background:rgba(245,158,11,.15); color:var(--amber); border:1px solid rgba(245,158,11,.3); }
+    .badge-none { background:rgba(100,116,139,.15); color:var(--muted); border:1px solid rgba(100,116,139,.3); }
+
+    /* MINI PROGRESS BAR FOR STUDIES */
+    .mini-prog { display:flex; align-items:center; gap:8px; }
+    .mini-prog-track { flex:1; height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; min-width:60px; }
+    .mini-prog-fill { height:100%; border-radius:3px; }
+
+    /* ACCORDION DETAIL ROW */
+    .detail-row { display:none; background:rgba(15,23,42,.6); }
+    .detail-container { padding:12px 18px; border-left:3px solid var(--blue); margin:6px 0; }
+    .detail-table { width:100%; font-size:0.68rem; border-collapse:collapse; }
+    .detail-table th { color:var(--muted); padding:4px 8px; text-align:left; border-bottom:1px solid var(--border); font-size:0.58rem; text-transform:uppercase; }
+    .detail-table td { padding:6px 8px; border-bottom:1px solid rgba(30,45,69,.3); }
+
+    /* TOAST */
+    #toast { position:fixed; bottom:20px; right:20px; z-index:10000; padding:10px 18px; border-radius:8px; font-size:.78rem; font-weight:600; display:none; box-shadow:0 4px 16px rgba(0,0,0,.4); }
+    .toast-ok { background:var(--green); color:#fff; }
+    .toast-err { background:var(--red); color:#fff; }
+    .toast-info { background:var(--blue); color:#fff; }
+    .toast-warn { background:var(--amber); color:#000; }
+
+    /* POPUP AVISO SYNC */
+    .popup-aviso-sync {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      border-left: 4px solid var(--cyan);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(6, 182, 212, 0.15);
+      border-radius: 12px;
+      padding: 16px 20px;
+      max-width: 420px;
+      display: none;
+      align-items: flex-start;
+      gap: 14px;
+      animation: slideUpAviso 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideUpAviso {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .popup-aviso-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      flex-shrink: 0;
+    }
+    .popup-aviso-content {
+      flex: 1;
+      position: relative;
+    }
+    .popup-aviso-titulo {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .popup-aviso-desc {
+      font-size: 0.73rem;
+      color: #94a3b8;
+      line-height: 1.4;
+      margin-bottom: 12px;
+    }
+    .popup-aviso-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .popup-btn-sync {
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      border: none;
+      color: #fff;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.2s;
+    }
+    .popup-btn-sync:hover {
+      opacity: 0.9;
+    }
+    .popup-btn-dismiss {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .popup-btn-dismiss:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: var(--text);
+    }
+    .popup-close-x {
+      position: absolute;
+      top: -4px;
+      right: -8px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 6px;
+    }
+    .popup-close-x:hover {
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <div class="spinner"></div>
+  <p>Cargando legajos de empleados...</p>
+</div>
+
+<header class="dash-header">
+  <div class="logo">
+    <div class="logo-icon"><i class="bi bi-people-fill"></i></div>
+    <div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="logo-title">Control de Legajos y Empleados</div>
+        <span class="badge-impl" style="background:rgba(13,148,136,.18); color:#2dd4bf; border:1px solid rgba(13,148,136,.35); font-size:.62rem; font-weight:700; padding:2px 7px; border-radius:6px; letter-spacing:.5px;">v 091026 12:15:00 (v165)</span>
+      </div>
+      <div class="logo-sub">Auditoría Médica · Estado de Estudios y Archivador Drive</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button id="btnArchivarLote" class="btn-primary-head" onclick="archivarSeleccionados()" disabled>
+      <i class="bi bi-cloud-arrow-up-fill"></i> Archivar Seleccionados (<span id="countSel">0</span>)
+    </button>
+    <button class="btn-head" id="btnSyncMadre" onclick="sincronizarConMadre()" style="border-color:rgba(6,182,212,0.4); color:var(--cyan);" title="Identificar casos relevantes en Madre y actualizar hoja Empleados">
+      <i class="bi bi-arrow-repeat" id="iconSync"></i> Sincronizar con Madre
+    </button>
+    <a href="<?= url ?>" class="btn-head"><i class="bi bi-arrow-left"></i> Auditoría</a>
+    <a href="<?= url ?>?v=reclamos" class="btn-head"><i class="bi bi-file-earmark-x"></i> Reclamos</a>
+    <a href="<?= url ?>?v=desvios" class="btn-head"><i class="bi bi-exclamation-octagon"></i> Desvíos</a>
+    <a href="<?= url ?>?v=comunicacion" class="btn-head"><i class="bi bi-send-check-fill"></i> Comunicar</a>
+    <a href="<?= url ?>?v=avance" class="btn-head"><i class="bi bi-speedometer2"></i> Avance</a>
+    <a href="<?= url ?>?v=cobertura" class="btn-head"><i class="bi bi-grid-3x3-gap"></i> Cobertura</a>
+    <a href="<?= urlMadre ?>" target="_blank" class="btn-head"><i class="bi bi-table"></i> Hoja Madre</a>
+    <button type="button" id="btnTogglePanelLateral" class="btn-head active" onclick="togglePanelLateral()" title="Mostrar / Ocultar panel lateral de indicadores y filtros" style="border-color:rgba(6,182,212,0.4); color:var(--cyan);"><i class="bi bi-layout-sidebar-reverse"></i> Indicadores & Filtros</button>
+    <button type="button" class="btn-head" onclick="toggleGuiaEstados()" title="Ver definiciones de estados de auditoría"><i class="bi bi-question-circle"></i> Ayuda Estados</button>
+    <button class="btn-head" onclick="cargarDatos()"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+  </div>
+</header>
+
+<main class="dash-body-layout">
+
+  <!-- PANEL LATERAL DE INDICADORES Y FILTROS -->
+  <aside id="panelLateralFiltros" class="panel-lateral" aria-label="Indicadores y Filtros">
+    <div class="panel-lateral-header">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <i class="bi bi-funnel-fill" style="color:var(--cyan); font-size:1rem;"></i>
+        <div>
+          <div style="font-weight:700; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.5px; color:#fff;">Indicadores y Filtros</div>
+          <div style="font-size:0.62rem; color:var(--muted);"><span id="statTotal" style="font-weight:700; color:#fff;">0</span> en módulo</div>
+        </div>
+      </div>
+      <button type="button" class="btn-head" style="padding:4px 8px;" onclick="togglePanelLateral()" title="Colapsar panel lateral">
+        <i class="bi bi-chevron-right" id="iconTogglePanel"></i>
+      </button>
+    </div>
+
+    <!-- BARRA INDICADORA DE FILTRO ACTIVO -->
+    <div id="barraFiltroActivo" style="display:none; padding:8px 10px; background:rgba(6,182,212,0.12); border:1px solid rgba(6,182,212,0.35); border-radius:8px; justify-content:space-between; align-items:center; gap:6px;">
+      <div style="font-size:0.68rem; color:var(--cyan); font-weight:700; display:flex; align-items:center; gap:5px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+        <i class="bi bi-funnel-fill" style="flex-shrink:0;"></i> <span id="txtFiltroActivo" style="overflow:hidden; text-overflow:ellipsis;">Filtro</span>
+      </div>
+      <button type="button" class="btn-head" style="padding:2px 7px; font-size:0.62rem; color:#fff; border-color:rgba(6,182,212,0.4); flex-shrink:0;" onclick="limpiarFiltroTarjeta()">✕ Quitar</button>
+    </div>
+
+    <div class="panel-cards-list">
+      <!-- 1. Total empleados c/ Link (sale del madre) -->
+      <div class="metric-filter-card" id="mcard_total_link" onclick="aplicarFiltroTarjeta('total_link')" title="Filtrar empleados únicos por clave AN con link de estudio adjunto">
+        <div class="mcard-top">
+          <span class="mcard-val" id="statTotalConLink" style="color:var(--cyan);">0</span>
+          <i class="bi bi-link-45deg mcard-icon" style="color:var(--cyan);"></i>
+        </div>
+        <div class="mcard-title">Total con Link (Madre)</div>
+        <div class="mcard-sub">ANs únicos c/ PDF en el operativo</div>
+      </div>
+
+      <!-- 2. Pendientes de auditar (c/ link y sin resultado) -->
+      <div class="metric-filter-card" id="mcard_pend_auditar" onclick="aplicarFiltroTarjeta('pend_auditar')" title="Filtrar legajos por clave AN con link y sin ningún resultado dictaminado">
+        <div class="mcard-top">
+          <span class="mcard-val" id="statFaltanAuditar" style="color:var(--amber);">0</span>
+          <i class="bi bi-hourglass-split mcard-icon" style="color:var(--amber);"></i>
+        </div>
+        <div class="mcard-title">Pendientes de Auditar</div>
+        <div class="mcard-sub">Con PDF en Madre s/ resultado</div>
+      </div>
+
+      <!-- 3. Empleados auditados (100% completos) -->
+      <div class="metric-filter-card" id="mcard_auditados" onclick="aplicarFiltroTarjeta('auditados')" title="Filtrar empleados con todos sus estudios realizados y auditados">
+        <div class="mcard-top">
+          <span class="mcard-val" id="statAuditados" style="color:var(--green);">0</span>
+          <i class="bi bi-check-circle-fill mcard-icon" style="color:var(--green);"></i>
+        </div>
+        <div class="mcard-title">Empleados Auditados</div>
+        <div class="mcard-sub">100% estudios realizados y dictaminados</div>
+      </div>
+
+      <!-- 4. Empleados archivados en Drive -->
+      <div class="metric-filter-card" id="mcard_archivados" onclick="aplicarFiltroTarjeta('archivados')" title="Filtrar legajos guardados y archivados en Google Drive (AL: SÍ)">
+        <div class="mcard-top">
+          <span class="mcard-val" id="statArchivados" style="color:var(--cyan);">0</span>
+          <i class="bi bi-cloud-check-fill mcard-icon" style="color:var(--cyan);"></i>
+        </div>
+        <div class="mcard-title">Archivados en Drive</div>
+        <div class="mcard-sub">Guardados en carpetas de Drive (AL: SÍ)</div>
+      </div>
+
+      <!-- 5. Pendiente archivar (no incluye con estudios incompletos) -->
+      <div class="metric-filter-card" id="mcard_pend_archivar" onclick="aplicarFiltroTarjeta('pend_archivar')" title="Filtrar legajos listos para archivar (sin ausencias ni incompletos)">
+        <div class="mcard-top">
+          <span class="mcard-val" id="statPendArchivar" style="color:var(--red);">0</span>
+          <i class="bi bi-cloud-arrow-up-fill mcard-icon" style="color:var(--red);"></i>
+        </div>
+        <div class="mcard-title">Pendientes de Archivar</div>
+        <div class="mcard-sub">Listos para Drive (no incluye incompletos)</div>
+      </div>
+
+      <!-- 6. Empleados incompletos (Ausentes) -->
+      <div class="metric-filter-card" id="mcard_incompletos" onclick="aplicarFiltroTarjeta('incompletos')" title="Filtrar empleados que faltaron o tienen estudios ausentes">
+        <div class="mcard-top">
+          <span class="mcard-val" id="statIncompletos" style="color:#f97316;">0</span>
+          <i class="bi bi-exclamation-triangle-fill mcard-icon" style="color:#f97316;"></i>
+        </div>
+        <div class="mcard-title">Incompletos (Ausentes)</div>
+        <div class="mcard-sub">Trabajador faltó a estudios asignados</div>
+      </div>
+
+      <!-- 7. Cantidad de empleados sin link (presentes sin examen) -->
+      <div class="metric-filter-card" id="mcard_sin_link" onclick="aplicarFiltroTarjeta('sin_link')" title="Filtrar trabajadores con asistencia confirmada pero sin link de examen">
+        <div class="mcard-top">
+          <span class="mcard-val" id="statPresentesSinLink" style="color:#94a3b8;">0</span>
+          <i class="bi bi-person-x-fill mcard-icon" style="color:#94a3b8;"></i>
+        </div>
+        <div class="mcard-title">Presentes sin Link</div>
+        <div class="mcard-sub">Asistencia confirmada sin PDF cargado</div>
+      </div>
+
+      <!-- 8. Cantidad de empleados parciales (no están todos los estudios auditados) -->
+      <div class="metric-filter-card" id="mcard_parciales" onclick="aplicarFiltroTarjeta('parciales')" title="Filtrar empleados con estudios pendientes o celdas en blanco">
+        <div class="mcard-top">
+          <span class="mcard-val" id="statParciales" style="color:var(--amber);">0</span>
+          <i class="bi bi-pie-chart-fill mcard-icon" style="color:var(--amber);"></i>
+        </div>
+        <div class="mcard-title">Parciales (En Proceso)</div>
+        <div class="mcard-sub">Falta terminar auditoría médica</div>
+      </div>
+
+      <!-- 9. Con Error al Archivar en Drive -->
+      <div class="metric-filter-card" id="mcard_error_arch" onclick="aplicarFiltroTarjeta('error_arch')" title="Filtrar empleados que tuvieron error al intentar guardar en Drive">
+        <div class="mcard-top">
+          <span class="mcard-val" id="statErroresArch" style="color:#ef4444;">0</span>
+          <i class="bi bi-x-circle-fill mcard-icon" style="color:#ef4444;"></i>
+        </div>
+        <div class="mcard-title">Errores en Drive</div>
+        <div class="mcard-sub">Fallaron al archivar (clic para ver)</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ÁREA PRINCIPAL -->
+  <section class="dash-main-area">
+
+  <!-- PROGRESS BAR PANEL (VISIBLE DURANTE ARCHIVADO) -->
+  <div id="progresoArchivadoPanel">
+    <div class="prog-text" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+      <span id="progresoTitulo"><i class="bi bi-hourglass-split"></i> Procesando archivado de legajos en Drive...</span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span id="progresoContador">0 / 0</span>
+        <button id="btnVerErroresPanel" type="button" class="btn-head" style="display:none; padding:2px 8px; background:#dc2626; color:#fff; border-color:#b91c1c; font-size:0.7rem; font-weight:700;" onclick="mostrarModalErrores()">
+          <i class="bi bi-exclamation-triangle-fill"></i> Ver errores (<span id="numErroresPanel">0</span>)
+        </button>
+      </div>
+    </div>
+    <div class="prog-bar-container">
+      <div class="prog-bar-fill" id="progresoBarra"></div>
+    </div>
+  </div>
+
+  <!-- FILTROS -->
+  <div class="filter-bar">
+    <button type="button" id="btnToggleSidebarBarra" class="btn-head" onclick="togglePanelLateral()" title="Expandir/Colapsar panel de indicadores y filtros">
+      <i class="bi bi-layout-sidebar-inset"></i> <span id="lblToggleSidebar">Panel Indicadores</span>
+    </button>
+    <div id="badgeFiltroActivoBarra" class="badge badge-ok" style="display:none; cursor:pointer; font-size:0.7rem; padding:5px 10px;" onclick="limpiarFiltroTarjeta()" title="Hacé clic para quitar el filtro de indicador">
+      <i class="bi bi-funnel-fill"></i> <span id="txtFiltroActivoBarra"></span> &times;
+    </div>
+    <input type="text" id="filtroCuil" class="search-input" style="min-width:125px; max-width:155px;" placeholder="🔍 CUIL..." oninput="filtrarTabla()">
+    <input type="text" id="filtroNombre" class="search-input" style="min-width:150px;" placeholder="👤 Empleado / Nombre..." oninput="filtrarTabla()">
+    <input type="text" id="filtroContrato" class="search-input" style="min-width:140px; max-width:180px;" placeholder="🏢 Empleador / CUIT..." oninput="filtrarTabla()">
+    <input type="text" id="filtroEstab" class="search-input" style="min-width:150px;" placeholder="🏢 Establecimiento..." oninput="filtrarTabla()">
+    <input type="text" id="filtroPrestador" class="search-input" style="min-width:130px;" placeholder="🏥 Prestador..." oninput="filtrarTabla()">
+    <select id="filtroArchivado" class="filter-select" onchange="filtrarTabla()">
+      <option value="">Estado Drive (AL): Todos</option>
+      <option value="pend">⚠ Pendientes de Archivar</option>
+      <option value="si">✓ Archivados (AL: SÍ)</option>
+      <option value="error">❌ Con Error al Archivar</option>
+    </select>
+    <select id="filtroAuditoria" class="filter-select" onchange="filtrarTabla()" title="Filtrar por avance y condición de auditoría">
+      <option value="">Estado Auditoría: Todos</option>
+      <option value="completo">✓ 100% Completos (Todos realizados)</option>
+      <option value="incompleto">⚠ Incompletos (Trabajador faltó / Ausente)</option>
+      <option value="parcial">⏳ En Proceso (Faltan auditar / Celdas vacías)</option>
+    </select>
+    <select id="filtroLink" class="filter-select" onchange="filtrarTabla()" title="Filtrar por presencia de link de estudio adjunto">
+      <option value="">Link Adjunto: Todos</option>
+      <option value="con">🔗 Con Link Adjunto</option>
+      <option value="sin">Sin Link Adjunto</option>
+    </select>
+    <button class="btn-head" onclick="limpiarFiltros()" title="Limpiar todos los filtros">
+      <i class="bi bi-eraser"></i> Limpiar
+    </button>
+  </div>
+
+  <!-- TABLA -->
+  <div class="table-card">
+    <div class="table-scroll">
+      <table class="emp-table">
+        <thead>
+          <tr>
+            <th class="center" style="width:36px;"><input type="checkbox" id="checkAll" onchange="toggleCheckAll(this)"></th>
+            <th style="width:115px;">CUIL</th>
+            <th style="min-width:170px;">Empleado</th>
+            <th style="min-width:185px;">Empleador (Contrato / SRT)</th>
+            <th style="min-width:180px;">Establecimiento</th>
+            <th style="min-width:140px;">Prestador</th>
+            <th style="width:130px;" title="Estudios realizados / Estudios totales del examen">Estudios Realizados</th>
+            <th style="width:105px;">Estado Aud.</th>
+            <th class="center" style="width:75px;" title="Columna AL: Guardado / Archivado en Drive">AL (Guard.)</th>
+            <th class="center" style="width:65px;" title="Columna AM: Link a carpeta en Google Drive">AM (Drive)</th>
+            <th class="center" style="width:90px;">Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tablaBody">
+          <tr><td colspan="11" style="text-align:center; padding:30px; color:var(--muted);">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </section>
+</main>
+
+<!-- MODAL HINT / AYUDA DE ESTADOS -->
+<div id="modalAyudaEstados" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:10002; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; max-width:540px; width:100%; box-shadow:0 15px 40px rgba(0,0,0,0.7); padding:20px; position:relative;">
+    <button type="button" onclick="toggleGuiaEstados()" style="position:absolute; top:12px; right:14px; background:none; border:none; color:var(--muted); font-size:1.2rem; cursor:pointer;" title="Cerrar">&times;</button>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+      <i class="bi bi-lightbulb-fill" style="color:var(--amber); font-size:1.1rem;"></i>
+      <h4 style="color:#fff; font-size:0.9rem; font-weight:700; margin:0;">Guía y Definición de Estados</h4>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; font-size:0.75rem; line-height:1.4;">
+      <div style="background:var(--surface2); border-left:3px solid var(--amber); border-radius:6px; padding:8px 12px;">
+        <strong style="color:var(--amber);">⏳ Pendientes de Auditar (c/ Link):</strong> Trabajadores que tienen estudios médicos con PDF adjunto en la Hoja Madre pero aún no tienen dictamen médico cargado.
+      </div>
+      <div style="background:var(--surface2); border-left:3px solid var(--cyan); border-radius:6px; padding:8px 12px;">
+        <strong style="color:var(--cyan);">👥 Presentes s/ Link:</strong> Trabajadores con asistencia confirmada (<code>PRESENTE</code>) pero a los que el prestador aún no les cargó el link de estudio.
+      </div>
+      <div style="background:var(--surface2); border-left:3px solid var(--green); border-radius:6px; padding:8px 12px;">
+        <strong style="color:var(--green);">✓ 100% Completos:</strong> El médico auditó todo y el trabajador se realizó todos los estudios (Normal, Reco o Desvío).
+      </div>
+      <div style="background:var(--surface2); border-left:3px solid #f97316; border-radius:6px; padding:8px 12px;">
+        <strong style="color:#f97316;">⚠ Incompletos (Ausentes):</strong> El médico auditó todo pero el trabajador no se presentó a 1 o más estudios ("Ausente / Sin realizar").
+      </div>
+      <div style="background:var(--surface2); border-left:3px solid var(--amber); border-radius:6px; padding:8px 12px;">
+        <strong style="color:var(--amber);">⏳ En Proceso (Vacíos):</strong> La auditoría médica aún no finalizó porque faltan cargar resultados (celdas en blanco).
+      </div>
+      <div style="background:var(--surface2); border-left:3px solid var(--cyan); border-radius:6px; padding:8px 12px;">
+        <strong style="color:var(--cyan);">✓ AL: Archivados en Drive:</strong> Empleados cuyos PDFs ya fueron respaldados y copiados en las carpetas de Google Drive.
+      </div>
+    </div>
+    <div style="margin-top:16px; text-align:right;">
+      <button type="button" class="btn-head" onclick="toggleGuiaEstados()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE DE ERRORES DE ARCHIVADO -->
+<div id="modalErroresArchivado" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:10003; align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this)cerrarModalErrores()">
+  <div style="background:var(--surface); border:1px solid rgba(239,68,68,0.4); border-radius:12px; max-width:720px; width:100%; box-shadow:0 15px 40px rgba(0,0,0,0.85); padding:20px; position:relative;" onclick="event.stopPropagation()">
+    <button type="button" onclick="cerrarModalErrores()" style="position:absolute; top:12px; right:14px; background:none; border:none; color:var(--muted); font-size:1.2rem; cursor:pointer;" title="Cerrar">&times;</button>
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+      <i class="bi bi-exclamation-octagon-fill" style="color:#ef4444; font-size:1.3rem;"></i>
+      <div>
+        <h4 style="color:#fff; font-size:0.95rem; font-weight:700; margin:0;">Legajos con Error de Archivado en Drive</h4>
+        <div style="font-size:0.68rem; color:var(--muted); margin-top:2px;">Estos trabajadores no pudieron ser guardados en Google Drive y quedaron marcados en rojo en la tabla.</div>
+      </div>
+    </div>
+    <div style="max-height:340px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; margin-bottom:14px;">
+      <table class="detail-table" style="width:100%; margin:0;">
+        <thead>
+          <tr>
+            <th style="width:115px;">CUIL</th>
+            <th>Empleado / Establecimiento</th>
+            <th>Causa / Motivo del Error</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyErroresArchivado">
+          <tr><td colspan="3" style="text-align:center; padding:20px; color:var(--muted);">Sin errores registrados</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+      <span style="font-size:0.7rem; color:var(--muted);"><i class="bi bi-info-circle"></i> Causas habituales: link de PDF roto/inaccesible en Hoja Madre o falta de permisos en Drive.</span>
+      <button type="button" class="btn-head" onclick="cerrarModalErrores()">Entendido / Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let todosEmpleados = [];
+let metricasLinksGlobal = null;
+let empleadosFiltrados = [];
+let seleccionados = new Set();
+let enProcesoArchivado = false;
+let filtroTarjetaActivo = null;
+
+const nombresFiltros = {
+  'total_link': 'Total con Link (Madre)',
+  'pend_auditar': 'Pendientes de Auditar (c/ Link)',
+  'auditados': 'Empleados Auditados (100% Completos)',
+  'archivados': 'Archivados en Drive (AL: SÍ)',
+  'pend_archivar': 'Pendientes de Archivar (sin incompletos)',
+  'incompletos': 'Empleados Incompletos (Ausentes)',
+  'sin_link': 'Sin Link (Presentes s/ PDF)',
+  'parciales': 'Empleados Parciales (En Proceso)',
+  'error_arch': 'Con Error al Archivar en Drive'
+};
+
+window.onload = function() {
+  const savedCollapsed = localStorage.getItem('panel_metricas_collapsed');
+  if (savedCollapsed === '1') {
+    const p = document.getElementById('panelLateralFiltros');
+    const ic = document.getElementById('iconTogglePanel');
+    const b = document.getElementById('btnTogglePanelLateral');
+    if (p) p.classList.add('collapsed');
+    if (ic) ic.className = 'bi bi-chevron-left';
+    if (b) b.classList.remove('active');
+  }
+  cargarDatos();
+};
+
+function togglePanelLateral() {
+  const panel = document.getElementById('panelLateralFiltros');
+  const btnHead = document.getElementById('btnTogglePanelLateral');
+  const icon = document.getElementById('iconTogglePanel');
+  if (!panel) return;
+
+  panel.classList.toggle('collapsed');
+  const isCollapsed = panel.classList.contains('collapsed');
+
+  if (icon) {
+    icon.className = isCollapsed ? 'bi bi-chevron-left' : 'bi bi-chevron-right';
+  }
+  if (btnHead) {
+    btnHead.classList.toggle('active', !isCollapsed);
+  }
+
+  localStorage.setItem('panel_metricas_collapsed', isCollapsed ? '1' : '0');
+}
+
+function aplicarFiltroTarjeta(tipo) {
+  if (filtroTarjetaActivo === tipo) {
+    filtroTarjetaActivo = null;
+  } else {
+    filtroTarjetaActivo = tipo;
+  }
+
+  document.querySelectorAll('.metric-filter-card').forEach(c => c.classList.remove('active'));
+  const b = document.getElementById('barraFiltroActivo');
+  const txt = document.getElementById('txtFiltroActivo');
+  const bBarra = document.getElementById('badgeFiltroActivoBarra');
+  const txtBarra = document.getElementById('txtFiltroActivoBarra');
+
+  if (filtroTarjetaActivo) {
+    const cardEl = document.getElementById('mcard_' + filtroTarjetaActivo);
+    if (cardEl) cardEl.classList.add('active');
+    const label = nombresFiltros[filtroTarjetaActivo] || filtroTarjetaActivo;
+    if (b && txt) {
+      txt.innerText = label;
+      b.style.display = 'flex';
+    }
+    if (bBarra && txtBarra) {
+      txtBarra.innerText = label;
+      bBarra.style.display = 'inline-flex';
+    }
+  } else {
+    if (b) b.style.display = 'none';
+    if (bBarra) bBarra.style.display = 'none';
+  }
+
+  filtrarTabla();
+}
+
+function limpiarFiltroTarjeta() {
+  filtroTarjetaActivo = null;
+  document.querySelectorAll('.metric-filter-card').forEach(c => c.classList.remove('active'));
+  const b = document.getElementById('barraFiltroActivo');
+  if (b) b.style.display = 'none';
+  const bBarra = document.getElementById('badgeFiltroActivoBarra');
+  if (bBarra) bBarra.style.display = 'none';
+  filtrarTabla();
+}
+
+function toast(msg, tipo = 'info', dur = null) {
+  if (dur === null) {
+    dur = (tipo === 'err' || tipo === 'error' || tipo === 'warn') ? 25000 : 3500;
+  }
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.className = 'toast-' + tipo;
+  t.innerText = msg;
+  t.style.display = 'block';
+  t.style.cursor = 'pointer';
+  t.title = 'Haz clic para cerrar este mensaje';
+  t.onclick = () => { t.style.display = 'none'; };
+  if (tipo === 'err' || tipo === 'error') console.error('[Empleados Error]', msg);
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.display = 'none'; }, dur);
+}
+
+function cargarDatos() {
+  document.getElementById('overlay').style.display = 'flex';
+  google.script.run
+    .withSuccessHandler(res => {
+      document.getElementById('overlay').style.display = 'none';
+      if (Array.isArray(res)) {
+        todosEmpleados = res || [];
+      } else if (res && Array.isArray(res.empleados)) {
+        todosEmpleados = res.empleados || [];
+        metricasLinksGlobal = res.metricasLinks || null;
+      } else {
+        todosEmpleados = [];
+      }
+
+      todosEmpleados.forEach((e, i) => {
+        e.safeKey = 'emp_' + i + '_' + (e.cuil || '').replace(/\D/g, '') + '_' + (e.establecimiento || '').replace(/[^a-zA-Z0-9]/g, '');
+      });
+
+      calcularStats();
+      actualizarCardLinks();
+      filtrarTabla();
+
+      if (!metricasLinksGlobal) {
+        google.script.run
+          .withSuccessHandler(m => {
+            if (m) {
+              metricasLinksGlobal = m;
+              actualizarCardLinks();
+            }
+          })
+          .obtenerMetricasLinksEmpleados();
+      }
+    })
+    .withFailureHandler(err => {
+      document.getElementById('overlay').style.display = 'none';
+      console.error('Error al cargar empleados:', err);
+      toast('Error al cargar empleados: ' + (err ? err.message : ''), 'err', 25000);
+    })
+    .cargarDatosEmpleados();
+}
+
+function sincronizarConMadre() {
+  const btn = document.getElementById('btnSyncMadre');
+  const icon = document.getElementById('iconSync');
+  if (btn) btn.disabled = true;
+  if (icon) icon.classList.add('spin');
+  toast('Sincronizando casos desde Hoja Madre hacia hoja Empleados...', 'info', 10000);
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (btn) btn.disabled = false;
+      if (icon) icon.classList.remove('spin');
+      if (res && res.status === "OK") {
+        toast(`✓ Sincronización exitosa: ${res.empleados} registros en hoja Empleados`, 'ok', 4000);
+        cargarDatos();
+      } else {
+        toast(`Aviso: ${res ? res.msg : 'No se pudo sincronizar'}`, 'warn', 15000);
+      }
+    })
+    .withFailureHandler(err => {
+      if (btn) btn.disabled = false;
+      if (icon) icon.classList.remove('spin');
+      console.error('Error al sincronizar con Madre:', err);
+      toast(`Error al sincronizar: ${err ? err.message : ''}`, 'err', 25000);
+    })
+    .sincronizarHojaEmpleados();
+}
+
+function actualizarCardLinks() {
+  const m = metricasLinksGlobal;
+  const elSinLink = document.getElementById('statPresentesSinLink');
+
+  if (m && m.presentesSinLink !== undefined && m.presentesSinLink !== null) {
+    if (elSinLink) elSinLink.innerText = Number(m.presentesSinLink || 0).toLocaleString('es-AR');
+  } else {
+    if (elSinLink) elSinLink.innerText = '—';
+  }
+}
+
+function toggleGuiaEstados() {
+  const m = document.getElementById('modalAyudaEstados');
+  if (!m) return;
+  m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
+}
+
+function _esGuardado(val) {
+  if (!val && val !== true) return false;
+  if (typeof val === 'boolean') return val;
+  const s = String(val).trim().toUpperCase();
+  if (s.startsWith('ERROR')) return false;
+  if (!s || s === 'NO' || s === 'FALSE' || s === 'FALSO' || s === '-' || s === 'PENDIENTE') return false;
+  if (s.startsWith('SIN ') || s.startsWith('SIN/')) return false;
+  return s === 'SÍ' || s === 'SI' || s === 'TRUE' || s === 'VERDADERO' ||
+         s.startsWith('SÍ') || s.startsWith('SI ') || s.startsWith('SI(') || s.startsWith('SI/') || s.startsWith('SI-') ||
+         s.includes('GUARDAD') || s.includes('ARCHIV') || s === 'OK';
+}
+
+function _esResultadoApto(res) {
+  if (!res) return false;
+  const r = String(res).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return r.includes('normal laboral') || r.includes('enfermedad profesional') || r.includes('desistido');
+}
+
+function calcularStats() {
+  const clavesTotal = new Set();
+  const clavesAuditados100 = new Set();
+  const clavesIncompletos = new Set();
+  const clavesParciales = new Set();
+  const clavesArchivados = new Set();
+  const clavesPendArchivar = new Set();
+  const clavesTotalConLink = new Set();
+  const clavesPendAuditarSinRes = new Set();
+  const clavesErroresArch = new Set();
+
+  todosEmpleados.forEach(e => {
+    // Clave única del empleado (Columna AN: CUIL_CodigoSRT)
+    const kClave = String(e.clave || e.safeKey || (e.cuil + '_' + (e.srt || e.establecimiento || ''))).trim();
+    if (kClave) clavesTotal.add(kClave);
+
+    const esArch = _esGuardado(e.guardado) || (Array.isArray(e.estudios) && e.estudios.some(est => _esGuardado(est.guardado)));
+    const esError = !!e.errorArchivado;
+    if (esError && kClave) {
+      clavesErroresArch.add(kClave);
+    }
+
+    const tieneLk = Boolean(e.linkAdjunto || (e.estudios || []).some(est => est.adjunto1 || est.adjunto2));
+    const totEst = (Array.isArray(e.estudios) && e.estudios.length > 0)
+      ? e.estudios.length
+      : (Number(e.totalEstudios) || 0);
+    const audEst = (Array.isArray(e.estudios) && e.estudios.length > 0)
+      ? e.estudios.filter(est => est && est.resultado && String(est.resultado).trim() !== '').length
+      : (Number(e.auditadosEstudios) || 0);
+
+    const esAuditado100 = (totEst > 0 && audEst >= totEst);
+    const esParcial = (audEst > 0 && audEst < totEst);
+    const tieneNoApto = (e.estudios || []).some(est => est.resultado && !_esResultadoApto(est.resultado));
+
+    if (tieneLk) {
+      if (kClave) clavesTotalConLink.add(kClave);
+      if (audEst === 0) {
+        if (kClave) clavesPendAuditarSinRes.add(kClave);
+      }
+    }
+
+    if (esAuditado100 && !tieneNoApto) {
+      if (kClave) clavesAuditados100.add(kClave);
+    }
+
+    // Clasificación de estados para los indicadores de legajo:
+    if (tieneNoApto) {
+      // Incompleto prevalece si tiene cualquier resultado distinto de Normal, Enfermedad o Desistido
+      if (kClave) clavesIncompletos.add(kClave);
+    } else if (esParcial) {
+      // Parcial si tiene celdas en blanco y ningún resultado no apto
+      if (kClave) clavesParciales.add(kClave);
+    } else if (esAuditado100 && tieneLk) {
+      if (esArch) {
+        // Archivado: 100% auditado, con link, con SÍ y sin no-aptos
+        if (kClave) clavesArchivados.add(kClave);
+      } else {
+        // Pendiente de archivar: 100% auditado, con link, sin SÍ y sin no-aptos
+        if (kClave) clavesPendArchivar.add(kClave);
+      }
+    }
+  });
+
+  const elTotal = document.getElementById('statTotal');
+  if (elTotal) elTotal.innerText = (clavesTotal.size || todosEmpleados.length).toLocaleString('es-AR');
+
+  const elAud = document.getElementById('statAuditados');
+  if (elAud) elAud.innerText = clavesAuditados100.size.toLocaleString('es-AR');
+
+  const elArch = document.getElementById('statArchivados');
+  if (elArch) elArch.innerText = clavesArchivados.size.toLocaleString('es-AR');
+
+  const elPendArch = document.getElementById('statPendArchivar');
+  if (elPendArch) elPendArch.innerText = clavesPendArchivar.size.toLocaleString('es-AR');
+
+  const elInc = document.getElementById('statIncompletos');
+  if (elInc) elInc.innerText = clavesIncompletos.size.toLocaleString('es-AR');
+
+  const elParc = document.getElementById('statParciales');
+  if (elParc) elParc.innerText = clavesParciales.size.toLocaleString('es-AR');
+
+  const elTotalLink = document.getElementById('statTotalConLink');
+  if (elTotalLink) elTotalLink.innerText = (clavesTotalConLink.size || 0).toLocaleString('es-AR');
+
+  const elFaltan = document.getElementById('statFaltanAuditar');
+  if (elFaltan) elFaltan.innerText = (clavesPendAuditarSinRes.size || 0).toLocaleString('es-AR');
+
+  const elErrores = document.getElementById('statErroresArch');
+  if (elErrores) elErrores.innerText = clavesErroresArch.size.toLocaleString('es-AR');
+}
+
+function filtrarTabla() {
+  const fCuil = (document.getElementById('filtroCuil') ? document.getElementById('filtroCuil').value : '').toLowerCase().trim();
+  const fNom = (document.getElementById('filtroNombre') ? document.getElementById('filtroNombre').value : '').toLowerCase().trim();
+  const fContr = (document.getElementById('filtroContrato') ? document.getElementById('filtroContrato').value : '').toLowerCase().trim();
+  const fEstab = (document.getElementById('filtroEstab') ? document.getElementById('filtroEstab').value : '').toLowerCase().trim();
+  const fPrest = (document.getElementById('filtroPrestador') ? document.getElementById('filtroPrestador').value : '').toLowerCase().trim();
+  const fAud = document.getElementById('filtroAuditoria') ? document.getElementById('filtroAuditoria').value : '';
+  const fArch = document.getElementById('filtroArchivado') ? document.getElementById('filtroArchivado').value : '';
+  const fLink = document.getElementById('filtroLink') ? document.getElementById('filtroLink').value : '';
+
+  empleadosFiltrados = todosEmpleados.filter(e => {
+    if (fCuil && !(e.cuil && e.cuil.toLowerCase().includes(fCuil))) return false;
+    if (fNom && !(e.apeNom && e.apeNom.toLowerCase().includes(fNom))) return false;
+    if (fContr) {
+      const matchContr = (e.contrato && e.contrato.toLowerCase().includes(fContr)) ||
+                         (e.nombreContrato && e.nombreContrato.toLowerCase().includes(fContr)) ||
+                         (e.srt && e.srt.toLowerCase().includes(fContr));
+      if (!matchContr) return false;
+    }
+    if (fPrest) {
+      const prestadoresEmp = [e.prestador || ''];
+      if (Array.isArray(e.estudios)) {
+        e.estudios.forEach(est => {
+          if (est.prestador) prestadoresEmp.push(est.prestador);
+        });
+      }
+      const matchPrest = prestadoresEmp.some(p => p && p.toLowerCase().includes(fPrest));
+      if (!matchPrest) return false;
+    }
+
+    const esArch = _esGuardado(e.guardado) || (Array.isArray(e.estudios) && e.estudios.some(est => _esGuardado(est.guardado)));
+    const esError = !!e.errorArchivado;
+    const tieneLk = Boolean(e.linkAdjunto || (e.estudios || []).some(est => est.adjunto1 || est.adjunto2));
+    const totEst = (Array.isArray(e.estudios) && e.estudios.length > 0)
+      ? e.estudios.length
+      : (Number(e.totalEstudios) || 0);
+    const audEst = (Array.isArray(e.estudios) && e.estudios.length > 0)
+      ? e.estudios.filter(est => est && est.resultado && String(est.resultado).trim() !== '').length
+      : (Number(e.auditadosEstudios) || 0);
+    const esAuditado100 = (totEst > 0 && audEst >= totEst);
+    const esParcial = (audEst > 0 && audEst < totEst);
+    const tieneNoApto = (e.estudios || []).some(est => est.resultado && !_esResultadoApto(est.resultado));
+
+    if (fAud === 'completo') {
+      if (!esAuditado100 || tieneNoApto) return false;
+    }
+    if (fAud === 'incompleto') {
+      if (!tieneNoApto) return false;
+    }
+    if (fAud === 'parcial') {
+      if (!esParcial || tieneNoApto) return false;
+    }
+
+    if (fArch === 'si' && !esArch) return false;
+    if (fArch === 'pend' && esArch) return false;
+    if (fArch === 'error' && !esError) return false;
+
+    if (fLink === 'con' && !tieneLk) return false;
+    if (fLink === 'sin' && tieneLk) return false;
+
+    // FILTRO ACTIVO POR TARJETA DEL PANEL LATERAL
+    if (filtroTarjetaActivo) {
+      switch (filtroTarjetaActivo) {
+        case 'total_link':
+          if (!tieneLk) return false;
+          break;
+        case 'pend_auditar':
+          if (!tieneLk || audEst > 0) return false;
+          break;
+        case 'auditados':
+          if (!esAuditado100 || tieneNoApto) return false;
+          break;
+        case 'archivados':
+          if (!esAuditado100 || !tieneLk || !esArch || tieneNoApto) return false;
+          break;
+        case 'pend_archivar':
+          if (!esAuditado100 || !tieneLk || esArch || tieneNoApto) return false;
+          break;
+        case 'incompletos':
+          if (!tieneNoApto) return false;
+          break;
+        case 'sin_link':
+          if (tieneLk) return false;
+          break;
+        case 'parciales':
+          if (!esParcial || tieneNoApto) return false;
+          break;
+        case 'error_arch':
+          if (!esError) return false;
+          break;
+      }
+    }
+
+    return true;
+  });
+
+  renderTabla();
+}
+
+function limpiarFiltros() {
+  if (document.getElementById('filtroCuil')) document.getElementById('filtroCuil').value = '';
+  if (document.getElementById('filtroNombre')) document.getElementById('filtroNombre').value = '';
+  if (document.getElementById('filtroContrato')) document.getElementById('filtroContrato').value = '';
+  if (document.getElementById('filtroEstab')) document.getElementById('filtroEstab').value = '';
+  if (document.getElementById('filtroPrestador')) document.getElementById('filtroPrestador').value = '';
+  if (document.getElementById('filtroArchivado')) document.getElementById('filtroArchivado').value = '';
+  if (document.getElementById('filtroAuditoria')) document.getElementById('filtroAuditoria').value = '';
+  if (document.getElementById('filtroLink')) document.getElementById('filtroLink').value = '';
+  limpiarFiltroTarjeta();
+}
+
+function renderTabla() {
+  const tbody = document.getElementById('tablaBody');
+  tbody.innerHTML = '';
+
+  if (empleadosFiltrados.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:30px; color:var(--muted);">No se encontraron empleados con los filtros seleccionados.</td></tr>';
+    actualizarBotonLote();
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+
+  empleadosFiltrados.forEach(e => {
+    const key = e.safeKey || ('emp_' + (e.cuil || '') + '_' + (e.establecimiento || ''));
+    const esArch = _esGuardado(e.guardado) || (Array.isArray(e.estudios) && e.estudios.some(est => _esGuardado(est.guardado)));
+
+    const totEst = (Array.isArray(e.estudios) && e.estudios.length > 0)
+      ? e.estudios.length
+      : (Number(e.totalEstudios) || 0);
+    const audEst = (Array.isArray(e.estudios) && e.estudios.length > 0)
+      ? e.estudios.filter(est => est && est.resultado && String(est.resultado).trim() !== '').length
+      : (Number(e.auditadosEstudios) || 0);
+    const cantAptos = (Array.isArray(e.estudios) && e.estudios.length > 0)
+      ? e.estudios.filter(est => est && est.resultado && _esResultadoApto(est.resultado)).length
+      : (e.realizadosEstudios !== undefined && e.realizadosEstudios !== null ? Number(e.realizadosEstudios) : audEst);
+    const cantNoApto = (Array.isArray(e.estudios) && e.estudios.length > 0)
+      ? e.estudios.filter(est => est && est.resultado && !_esResultadoApto(est.resultado)).length
+      : (e.ausentesEstudios !== undefined && e.ausentesEstudios !== null ? Number(e.ausentesEstudios) : 0);
+    const tieneNoApto = cantNoApto > 0 || !!e.tieneNoApto;
+
+    // Los estudios que efectivamente se realizaron con éxito son cantAptos.
+    // Cuántos faltan para completar el legajo (ausentes/incompletos + pendientes sin auditar):
+    const faltanEst = Math.max(0, totEst - cantAptos);
+    const pctRealizados = totEst > 0 ? Math.round((cantAptos / totEst) * 100) : 0;
+    const esAuditado100 = (totEst > 0 && audEst >= totEst && !tieneNoApto);
+
+    let badgeAud = '';
+    let colorFill = 'var(--muted)';
+    let textoEstudios = `${cantAptos} / ${totEst}`;
+
+    if (tieneNoApto) {
+      badgeAud = '<span class="badge" style="background:rgba(249,115,22,0.15); color:#f97316; border:1px solid rgba(249,115,22,0.35);" title="Incompleto: Posee estudios ausentes o no realizados"><i class="bi bi-exclamation-triangle-fill"></i> Incompleto</span>';
+      colorFill = '#f97316';
+      textoEstudios = `<span title="${cantAptos} realizados de ${totEst}. Faltan ${faltanEst} (${cantNoApto} ausente/incompleto)">${cantAptos} / ${totEst} <span style="font-size:0.62rem; color:#f97316; font-weight:700;">(Faltan ${faltanEst})</span></span>`;
+    } else if (esAuditado100) {
+      badgeAud = '<span class="badge badge-ok" title="100% Completo: Todos los estudios fueron realizados y auditados"><i class="bi bi-check2-all"></i> Completo</span>';
+      colorFill = 'var(--green)';
+      textoEstudios = `<span title="100% completado">${cantAptos} / ${totEst} <span style="font-size:0.62rem; color:var(--green); font-weight:600;">(0 faltan)</span></span>`;
+    } else if (cantAptos > 0 || audEst > 0) {
+      badgeAud = `<span class="badge badge-warn" title="En Proceso: Auditoría sin finalizar, quedan estudios pendientes"><i class="bi bi-hourglass-split"></i> En Proceso (${pctRealizados}%)</span>`;
+      colorFill = 'var(--amber)';
+      textoEstudios = `<span title="${cantAptos} realizados de ${totEst}. Faltan ${faltanEst}">${cantAptos} / ${totEst} <span style="font-size:0.62rem; color:var(--amber); font-weight:600;">(Faltan ${faltanEst})</span></span>`;
+    } else {
+      badgeAud = '<span class="badge badge-none" title="Sin auditar: Ningún estudio realizado aún">Sin auditar</span>';
+      textoEstudios = `<span title="Sin auditar. Faltan ${faltanEst}">${cantAptos} / ${totEst} <span style="font-size:0.62rem; color:var(--muted); font-weight:600;">(Faltan ${faltanEst})</span></span>`;
+    }
+
+    const esError = !!e.errorArchivado;
+    const iconoAL = esError
+      ? `<span class="badge" style="background:#dc2626; color:#fff; font-weight:700; cursor:pointer;" onclick="mostrarModalErrores()" title="Error: ${escapeHtml(e.errorArchivado)}"><i class="bi bi-x-circle-fill"></i> ERROR</span>`
+      : (esArch
+        ? '<span class="badge badge-ok" title="AL: Guardado / Archivado en Drive"><i class="bi bi-check-circle-fill"></i> SÍ</span>'
+        : '<span class="badge badge-none" title="AL: Pendiente de archivar"><i class="bi bi-dash-circle"></i> NO</span>');
+
+    const iconoAM = e.linkCarpeta
+      ? `<a href="${e.linkCarpeta}" target="_blank" class="btn-head" style="padding:3px 8px; color:var(--cyan); border-color:rgba(6,182,212,0.3);" title="AM: Abrir carpeta en Google Drive"><i class="bi bi-folder2-open"></i> Ver</a>`
+      : '<span style="color:var(--muted); font-size:0.7rem;">-</span>';
+
+    const isChecked = seleccionados.has(key) ? 'checked' : '';
+
+    // Resolver prestador para fila principal: e.prestador o primer prestador encontrado en sus estudios
+    let prestadorMostrado = e.prestador || '';
+    if (!prestadorMostrado && Array.isArray(e.estudios)) {
+      const pList = e.estudios.map(est => String(est.prestador || '').trim()).filter(Boolean);
+      if (pList.length > 0) {
+        prestadorMostrado = Array.from(new Set(pList)).join(', ');
+      }
+    }
+
+    const tr = document.createElement('tr');
+    tr.className = 'emp-row';
+    tr.id = 'row_' + key;
+    if (esError) {
+      tr.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+      tr.title = `Error al archivar: ${e.errorArchivado}`;
+    }
+    tr.innerHTML = `
+      <td class="center"><input type="checkbox" class="chk-emp" value="${key}" ${isChecked} onchange="toggleFilaCheck('${key}', this)"></td>
+      <td style="font-weight:700; color:var(--text); font-family:monospace;">${e.cuil}</td>
+      <td>
+        <div style="font-weight:600; color:#fff;">${e.apeNom}</div>
+        <div style="font-size:0.6rem; color:var(--muted);">${e.organismo || ''}</div>
+      </td>
+      <td>
+        <div style="font-weight:700; color:#fff; font-size:0.75rem;">${e.nombreContrato || e.organismo || e.contrato || '—'}</div>
+        <div style="font-size:0.62rem; color:var(--muted);">CUIT: <span style="color:#cbd5e1;">${e.contrato || '—'}</span> · SRT: <span style="color:#cbd5e1;">${e.srt || '—'}</span></div>
+      </td>
+      <td style="font-size:0.7rem; color:var(--text); font-weight:600;">${e.establecimiento || '—'}</td>
+      <td>
+        <div style="font-size:0.72rem; color:var(--cyan); font-weight:600; display:flex; align-items:center; gap:4px;" title="${prestadorMostrado || 'Sin prestador asignado'}">
+          <i class="bi bi-hospital"></i> <span>${prestadorMostrado || '—'}</span>
+        </div>
+      </td>
+      <td>
+        <div class="mini-prog" title="${cantAptos} realizados de ${totEst} (${pctRealizados}%). Faltan ${faltanEst}">
+          <div class="mini-prog-track">
+            <div class="mini-prog-fill" style="width:${pctRealizados}%; background:${colorFill};"></div>
+          </div>
+          <span style="font-size:0.68rem; font-weight:700; white-space:nowrap;">${textoEstudios}</span>
+        </div>
+      </td>
+      <td>${badgeAud}</td>
+      <td class="center" id="al_cell_${key}">${iconoAL}</td>
+      <td class="center" id="am_cell_${key}">${iconoAM}</td>
+      <td class="center">
+        <div style="display:flex; gap:4px; justify-content:center;">
+          <button class="btn-head" style="padding:3px 6px;" onclick="toggleDetalle('${key}')" title="Ver estudios de este empleado en este establecimiento">
+            <i class="bi bi-chevron-down" id="chevron_${key}"></i>
+          </button>
+          <button class="btn-head" style="padding:3px 8px; color:var(--blue);" onclick="archivarIndividual('${key}')" title="Archivar PDF de este legajo en Drive" ${esArch ? 'disabled style="opacity:0.4;"' : ''}>
+            <i class="bi bi-cloud-arrow-up"></i>
+          </button>
+        </div>
+      </td>
+    `;
+    frag.appendChild(tr);
+
+    // Fila oculta de detalle
+    const trDetalle = document.createElement('tr');
+    trDetalle.className = 'detail-row';
+    trDetalle.id = 'detalle_' + key;
+    trDetalle.innerHTML = `
+      <td colspan="11">
+        <div class="detail-container">
+          <div style="font-size:0.65rem; font-weight:700; color:var(--cyan); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">
+            Estudios asignados al empleado en este establecimiento (${e.estudios.length})
+          </div>
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Estudio a Realizar</th>
+                <th>Prestador</th>
+                <th>Fecha Estudio</th>
+                <th>Resultado Auditoría</th>
+                <th>Observación</th>
+                <th>Fila Madre</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${e.estudios.map(est => {
+                const esAus = est.resultado && String(est.resultado).toLowerCase().includes('ausente');
+                const prestEst = est.prestador || prestadorMostrado || '-';
+                return `
+                <tr>
+                  <td style="font-weight:600; color:#fff;">${est.estudio || '-'}</td>
+                  <td style="color:var(--cyan); font-size:0.65rem;"><i class="bi bi-hospital"></i> ${prestEst}</td>
+                  <td>${formatFechaDDMMAAAA(est.fechaEstudio) || '-'}</td>
+                  <td>${est.resultado ? `<span style="font-weight:600; color:${esAus ? '#f97316' : 'inherit'};">${est.resultado}</span>` : '<span style="color:var(--muted);">Pendiente</span>'}</td>
+                  <td>${est.observacion || '-'}</td>
+                  <td style="color:var(--muted); font-family:monospace;">#${est.rowIndex}</td>
+                </tr>
+              `;}).join('')}
+            </tbody>
+          </table>
+        </div>
+      </td>
+    `;
+    frag.appendChild(trDetalle);
+  });
+
+  tbody.appendChild(frag);
+  actualizarBotonLote();
+}
+
+function toggleDetalle(key) {
+  const d = document.getElementById('detalle_' + key);
+  const chev = document.getElementById('chevron_' + key);
+  if (!d) return;
+  if (d.style.display === 'table-row') {
+    d.style.display = 'none';
+    chev.className = 'bi bi-chevron-down';
+  } else {
+    d.style.display = 'table-row';
+    chev.className = 'bi bi-chevron-up';
+  }
+}
+
+function toggleFilaCheck(key, chk) {
+  if (chk.checked) seleccionados.add(key);
+  else seleccionados.delete(key);
+  actualizarBotonLote();
+}
+
+function toggleCheckAll(master) {
+  const chks = document.querySelectorAll('.chk-emp');
+  chks.forEach(c => {
+    c.checked = master.checked;
+    if (master.checked) seleccionados.add(c.value);
+    else seleccionados.delete(c.value);
+  });
+  actualizarBotonLote();
+}
+
+function actualizarBotonLote() {
+  const count = seleccionados.size;
+  document.getElementById('countSel').innerText = count;
+  const btn = document.getElementById('btnArchivarLote');
+  btn.disabled = count === 0 || enProcesoArchivado;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+let ultimosErroresArchivado = [];
+
+function marcarFilaError(emp, errorMsg) {
+  if (!emp) return;
+  emp.errorArchivado = errorMsg || 'Error al archivar en Drive';
+  emp.guardado = 'ERROR';
+  const key = emp.safeKey || emp.clave || emp.cuil;
+  const al = document.getElementById('al_cell_' + key);
+  if (al) {
+    al.innerHTML = `<span class="badge" style="background:#dc2626; color:#fff; font-weight:700; cursor:pointer;" onclick="mostrarModalErrores()" title="Error: ${escapeHtml(errorMsg)}"><i class="bi bi-x-circle-fill"></i> ERROR</span>`;
+  }
+  const tr = document.getElementById('row_' + key);
+  if (tr) {
+    tr.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+    tr.title = `Error al archivar: ${errorMsg}`;
+  }
+  calcularStats();
+}
+
+function mostrarModalErrores() {
+  const modal = document.getElementById('modalErroresArchivado');
+  const tbody = document.getElementById('tbodyErroresArchivado');
+  if (!modal || !tbody) return;
+
+  if (ultimosErroresArchivado.length === 0) {
+    ultimosErroresArchivado = todosEmpleados.filter(e => e.errorArchivado).map(e => ({
+      cuil: e.cuil,
+      apeNom: e.apeNom,
+      estab: e.establecimiento,
+      msg: e.errorArchivado
+    }));
+  }
+
+  if (ultimosErroresArchivado.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding:20px; color:var(--muted);">No se encontraron errores de archivado registrados.</td></tr>`;
+  } else {
+    tbody.innerHTML = ultimosErroresArchivado.map(err => `
+      <tr>
+        <td style="font-family:monospace; font-weight:700; color:var(--text);">${escapeHtml(err.cuil)}</td>
+        <td>
+          <div style="font-weight:600; color:#fff;">${escapeHtml(err.apeNom)}</div>
+          <div style="font-size:0.65rem; color:var(--muted);">${escapeHtml(err.estab)}</div>
+        </td>
+        <td style="color:#f87171; font-size:0.75rem;">
+          <i class="bi bi-x-circle-fill"></i> ${escapeHtml(err.msg)}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  modal.style.display = 'flex';
+}
+
+function cerrarModalErrores() {
+  const modal = document.getElementById('modalErroresArchivado');
+  if (modal) modal.style.display = 'none';
+}
+
+// ARCHIVADO INDIVIDUAL
+function archivarIndividual(key) {
+  const emp = todosEmpleados.find(e => e.safeKey === key || e.clave === key || e.cuil === key);
+  if (!emp) return;
+  if (!confirm(`¿Archivar PDF del empleado ${emp.apeNom} (${emp.cuil}) en el establecimiento "${emp.establecimiento}"?`)) return;
+
+  toast(`Archivando ${emp.apeNom} (${emp.establecimiento}) en Drive...`, 'info', 4000);
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && res.status === "OK" && res.resultados && res.resultados[0] && res.resultados[0].status === "OK") {
+        const item = res.resultados[0];
+        emp.guardado = 'SÍ';
+        emp.linkCarpeta = item.urlCarpeta;
+        if (Array.isArray(emp.estudios)) {
+          emp.estudios.forEach(est => {
+            if (est && !String(est.resultado || '').toLowerCase().includes('ausente')) {
+              est.guardado = 'SÍ';
+              est.linkCarpeta = item.urlCarpeta;
+            }
+          });
+        }
+        actualizarFilaDom(emp);
+        calcularStats();
+        toast(`✓ Legajo de ${emp.apeNom} (${emp.establecimiento}) archivado exitosamente`, 'ok');
+      } else {
+        const errMsg = (res && res.resultados && res.resultados[0] && res.resultados[0].msg) || (res && res.msg) || 'Fallo desconocido';
+        console.error(`Error archivando ${emp.apeNom}:`, errMsg);
+        marcarFilaError(emp, errMsg);
+        ultimosErroresArchivado = [{
+          cuil: emp.cuil,
+          apeNom: emp.apeNom,
+          estab: emp.establecimiento,
+          msg: errMsg
+        }];
+        toast(`Error archivando legajo: ${errMsg}`, 'err', 7000);
+        mostrarModalErrores();
+      }
+    })
+    .withFailureHandler(err => {
+      const errMsg = err ? err.message : 'Error de conexión';
+      marcarFilaError(emp, errMsg);
+      ultimosErroresArchivado = [{
+        cuil: emp.cuil,
+        apeNom: emp.apeNom,
+        estab: emp.establecimiento,
+        msg: errMsg
+      }];
+      toast(`Error de conexión: ${errMsg}`, 'err', 5000);
+      mostrarModalErrores();
+    })
+    .archivarLotePDFs([emp]);
+}
+
+// ARCHIVADO MASIVO EN SEGUNDO PLANO POR LOTES DE 3
+function archivarSeleccionados() {
+  const arrKeys = Array.from(seleccionados);
+  if (arrKeys.length === 0 || enProcesoArchivado) return;
+
+  const listaParaArchivar = todosEmpleados.filter(e => seleccionados.has(e.safeKey));
+  if (!confirm(`¿Archivar ${listaParaArchivar.length} legajo(s) seleccionado(s) en Google Drive?`)) return;
+
+  enProcesoArchivado = true;
+  actualizarBotonLote();
+
+  const total = listaParaArchivar.length;
+  let procesadosOK = 0;
+  let procesadosErr = 0;
+  ultimosErroresArchivado = [];
+  const chunkSize = 3;
+  const chunks = [];
+  for (let i = 0; i < total; i += chunkSize) {
+    chunks.push(listaParaArchivar.slice(i, i + chunkSize));
+  }
+
+  const panelProg = document.getElementById('progresoArchivadoPanel');
+  const txtTitulo = document.getElementById('progresoTitulo');
+  const txtContador = document.getElementById('progresoContador');
+  const barraFill = document.getElementById('progresoBarra');
+  const btnVerErr = document.getElementById('btnVerErroresPanel');
+  const numVerErr = document.getElementById('numErroresPanel');
+
+  if (btnVerErr) btnVerErr.style.display = 'none';
+  if (numVerErr) numVerErr.innerText = '0';
+
+  panelProg.style.display = 'block';
+  txtTitulo.innerHTML = `<i class="bi bi-hourglass-split"></i> Archivando legajos en Google Drive...`;
+  txtContador.innerText = `0 / ${total} (0%)`;
+  barraFill.style.width = '0%';
+  barraFill.style.background = 'var(--blue)';
+
+  function procesarLote(idxChunk) {
+    if (idxChunk >= chunks.length) {
+      if (procesadosErr === 0) {
+        txtTitulo.innerHTML = `✓ ¡Archivado completado exitosamente!`;
+        barraFill.style.width = '100%';
+        barraFill.style.background = 'var(--green)';
+        toast(`✓ ${procesadosOK} legajo(s) procesado(s) correctamente en Drive`, 'ok', 5000);
+        setTimeout(() => { panelProg.style.display = 'none'; }, 5000);
+      } else {
+        txtTitulo.innerHTML = `⚠ Finalizado: ${procesadosOK} archivados, <span style="color:#f87171; font-weight:700;">${procesadosErr} con error</span>`;
+        barraFill.style.width = '100%';
+        barraFill.style.background = 'var(--yellow)';
+        if (btnVerErr && numVerErr) {
+          numVerErr.innerText = procesadosErr;
+          btnVerErr.style.display = 'inline-flex';
+        }
+        toast(`Archivado: ${procesadosOK} OK, ${procesadosErr} fallaron. Las filas con error quedaron marcadas en rojo.`, 'warn', 8000);
+        mostrarModalErrores();
+      }
+      enProcesoArchivado = false;
+      actualizarBotonLote();
+      calcularStats();
+      return;
+    }
+
+    const loteActual = chunks[idxChunk];
+
+    google.script.run
+      .withSuccessHandler(res => {
+        if (res && res.status === "OK" && Array.isArray(res.resultados)) {
+          res.resultados.forEach(r => {
+            const emp = todosEmpleados.find(e =>
+              (r.safeKey && e.safeKey === r.safeKey) ||
+              (r.clave && e.clave && e.clave === r.clave) ||
+              (r.clave && e.safeKey === r.clave) ||
+              (r.cuil && e.cuil === r.cuil && (!r.estab || e.establecimiento === r.estab))
+            );
+            if (r.status === "OK") {
+              procesadosOK++;
+              if (emp) {
+                emp.guardado = 'SÍ';
+                emp.linkCarpeta = r.urlCarpeta;
+                if (Array.isArray(emp.estudios)) {
+                  emp.estudios.forEach(est => {
+                    if (est && !String(est.resultado || '').toLowerCase().includes('ausente')) {
+                      est.guardado = 'SÍ';
+                      est.linkCarpeta = r.urlCarpeta;
+                    }
+                  });
+                }
+                actualizarFilaDom(emp);
+                seleccionados.delete(emp.safeKey);
+              }
+            } else {
+              procesadosErr++;
+              const razon = r.msg || 'Error al guardar en Drive';
+              ultimosErroresArchivado.push({
+                cuil: emp ? emp.cuil : r.cuil,
+                apeNom: emp ? emp.apeNom : '-',
+                estab: emp ? emp.establecimiento : '-',
+                msg: razon
+              });
+              if (emp) {
+                marcarFilaError(emp, razon);
+              }
+              console.error(`Fallo archivando ${emp ? emp.apeNom : r.cuil}:`, razon);
+            }
+          });
+        } else {
+          procesadosErr += loteActual.length;
+          const msgGeneral = (res && res.msg) || 'Error en respuesta del servidor';
+          loteActual.forEach(itemEmp => {
+            ultimosErroresArchivado.push({
+              cuil: itemEmp.cuil,
+              apeNom: itemEmp.apeNom,
+              estab: itemEmp.establecimiento,
+              msg: msgGeneral
+            });
+            marcarFilaError(itemEmp, msgGeneral);
+          });
+          console.error("Fallo general en lote:", res);
+        }
+
+        const totalAtendidos = procesadosOK + procesadosErr;
+        const pct = Math.round((totalAtendidos / total) * 100);
+        txtContador.innerText = `${totalAtendidos} / ${total} (${pct}%) · OK: ${procesadosOK} · Errores: ${procesadosErr}`;
+        barraFill.style.width = pct + '%';
+        if (procesadosErr > 0 && btnVerErr && numVerErr) {
+          numVerErr.innerText = procesadosErr;
+          btnVerErr.style.display = 'inline-flex';
+        }
+
+        calcularStats();
+        actualizarBotonLote();
+        procesarLote(idxChunk + 1);
+      })
+      .withFailureHandler(err => {
+        console.error("Error en lote:", err);
+        procesadosErr += loteActual.length;
+        const errMsg = err ? err.message : 'Error de conexión';
+        loteActual.forEach(itemEmp => {
+          ultimosErroresArchivado.push({
+            cuil: itemEmp.cuil,
+            apeNom: itemEmp.apeNom,
+            estab: itemEmp.establecimiento,
+            msg: errMsg
+          });
+          marcarFilaError(itemEmp, errMsg);
+        });
+        const totalAtendidos = procesadosOK + procesadosErr;
+        const pct = Math.round((totalAtendidos / total) * 100);
+        txtContador.innerText = `${totalAtendidos} / ${total} (${pct}%) · OK: ${procesadosOK} · Errores: ${procesadosErr}`;
+        barraFill.style.width = pct + '%';
+        if (btnVerErr && numVerErr) {
+          numVerErr.innerText = procesadosErr;
+          btnVerErr.style.display = 'inline-flex';
+        }
+        toast(`Aviso: retraso en un lote, continuando...`, 'warn', 3000);
+        calcularStats();
+        actualizarBotonLote();
+        procesarLote(idxChunk + 1);
+      })
+      .archivarLotePDFs(loteActual);
+  }
+
+  procesarLote(0);
+}
+
+function formatFechaDDMMAAAA(s) {
+  if (!s && s !== 0) return '';
+  s = String(s).trim();
+  if (!s || s === '-' || s.toLowerCase() === 'invalid date') return '';
+  const mArSlash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mArSlash) return `${mArSlash[1].padStart(2, '0')}/${mArSlash[2].padStart(2, '0')}/${mArSlash[3]}`;
+  const mArDash = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
+  if (mArDash) return `${mArDash[1].padStart(2, '0')}/${mArDash[2].padStart(2, '0')}/${mArDash[3]}`;
+  const mIso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (mIso) return `${mIso[3].padStart(2, '0')}/${mIso[2].padStart(2, '0')}/${mIso[1]}`;
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime()) && dt.getFullYear() > 1900 && dt.getFullYear() < 2100) {
+    const d = String(dt.getDate()).padStart(2, '0');
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const y = dt.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  return s;
+}
+
+function actualizarFilaDom(emp) {
+  const key = emp.safeKey || emp.clave || emp.cuil;
+  delete emp.errorArchivado;
+  const al = document.getElementById('al_cell_' + key);
+  if (al) {
+    al.innerHTML = '<span class="badge badge-ok" title="AL: Guardado / Archivado en Drive"><i class="bi bi-check-circle-fill"></i> SÍ</span>';
+  }
+  const am = document.getElementById('am_cell_' + key);
+  if (am && emp.linkCarpeta) {
+    am.innerHTML = `<a href="${emp.linkCarpeta}" target="_blank" class="btn-head" style="padding:3px 8px; color:var(--cyan); border-color:rgba(6,182,212,0.3);" title="AM: Abrir carpeta en Google Drive"><i class="bi bi-folder2-open"></i> Ver</a>`;
+  }
+  const tr = document.getElementById('row_' + key);
+  if (tr) {
+    tr.style.backgroundColor = '';
+    tr.title = '';
+  }
+  const btnArch = document.querySelector(`#row_${key} button[onclick*="archivarIndividual"]`);
+  if (btnArch) {
+    btnArch.disabled = true;
+    btnArch.style.opacity = '0.4';
+    btnArch.title = 'Este legajo ya está archivado en Drive';
+  }
+}
+</script>
+
+</body>
+</html>

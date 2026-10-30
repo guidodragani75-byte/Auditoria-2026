@@ -1,0 +1,2884 @@
+<!-- [2026-09-06] Vista de Comunicación de Resultados (Agrupada por Empleado con Acordeón) -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comunicación de Resultados · Auditoría Médica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --bg:      #0b1120;
+      --surface: #111827;
+      --surface2:#1a2236;
+      --border:  #1e2d45;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --blue:    #3b82f6;
+      --green:   #10b981;
+      --amber:   #f59e0b;
+      --red:     #ef4444;
+      --purple:  #a855f7;
+      --cyan:    #06b6d4;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); font-size:.82rem; min-height:100vh; }
+
+    /* LOADING */
+    #overlay { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; gap:20px; }
+    .spinner { width:48px; height:48px; border:3px solid var(--border); border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #overlay p { color:var(--muted); font-size:.8rem; }
+
+    /* HEADER */
+    .dash-header { background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%); border-bottom:1px solid var(--border); padding:14px 28px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; gap:12px; flex-wrap:wrap; }
+    .logo { display:flex; align-items:center; gap:12px; }
+    .logo-icon { width:36px; height:36px; background:linear-gradient(135deg,var(--blue),var(--cyan)); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:#fff; }
+    .logo-title { font-size:.95rem; font-weight:700; color:#fff; }
+    .logo-sub   { font-size:.6rem; color:var(--muted); margin-top:1px; }
+    .badge-impl { background:rgba(59,130,246,.18); color:#60a5fa; border:1px solid rgba(59,130,246,.35); font-size:.62rem; font-weight:700; padding:2px 7px; border-radius:6px; letter-spacing:.5px; }
+    .header-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+    .btn-head { background:var(--surface2); border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:6px 14px; cursor:pointer; font-size:.72rem; font-family:inherit; transition:all .2s; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+    .btn-head:hover { background:var(--border); color:var(--text); }
+
+    .date-input { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:6px 12px; font-size:.75rem; font-family:inherit; }
+    .date-input:focus { outline:none; border-color:var(--blue); }
+
+    .btn-comunicar { background:var(--blue); border:1px solid var(--blue); color:#fff; border-radius:8px; padding:7px 18px; cursor:pointer; font-size:.78rem; font-weight:600; font-family:inherit; transition:all .2s; display:inline-flex; align-items:center; gap:8px; }
+    .btn-comunicar:hover:not(:disabled) { background:#2563eb; }
+    .btn-comunicar:disabled { opacity:.4; cursor:not-allowed; }
+
+    /* BODY */
+    .dash-body { padding:20px 28px; max-width:1600px; margin:0 auto; }
+
+    /* FILTERS */
+    .filter-bar { display:flex; gap:8px; margin-bottom:14px; align-items:center; flex-wrap:wrap; }
+    .filter-select { background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 12px; font-size:.75rem; font-family:inherit; cursor:pointer; min-width:165px; }
+    .filter-select:focus { outline:none; border-color:var(--blue); }
+    .search-input { background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:7px 14px; font-size:.75rem; font-family:inherit; flex:1; min-width:200px; }
+    .search-input:focus { outline:none; border-color:var(--blue); }
+    .search-input::placeholder { color:var(--muted); }
+
+    /* STATS */
+    .stats-bar { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 16px; display:flex; align-items:center; gap:10px; }
+    .stat-val { font-size:1.3rem; font-weight:800; color:#fff; }
+    .stat-lbl { font-size:.58rem; text-transform:uppercase; font-weight:700; color:var(--muted); letter-spacing:.5px; }
+    .stat-card.amber { border-color:var(--amber); }
+    .stat-card.amber .stat-val { color:var(--amber); }
+    .stat-card.green { border-color:var(--green); }
+    .stat-card.green .stat-val { color:var(--green); }
+    .stat-card.blue  { border-color:var(--blue); }
+    .stat-card.blue  .stat-val  { color:var(--blue); }
+
+    /* TABLE */
+    .table-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .table-scroll { overflow-x:auto; max-height:72vh; overflow-y:auto; }
+    table.emp-table { width:100%; border-collapse:collapse; font-size:.72rem; }
+    table.emp-table thead th { background:var(--surface2); padding:10px 14px; text-align:left; font-size:.58rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); white-space:nowrap; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:5; }
+    table.emp-table thead th.center { text-align:center; }
+    table.emp-table tbody tr.emp-row { border-bottom:1px solid rgba(30,45,69,.5); transition:background .15s; }
+    table.emp-table tbody tr.emp-row:hover { background:rgba(59,130,246,.04); }
+    table.emp-table tbody tr.emp-row.row-selected { background:rgba(59,130,246,.09); }
+    table.emp-table td { padding:10px 14px; vertical-align:middle; }
+    table.emp-table td.center { text-align:center; }
+
+    /* Accordion child row */
+    tr.details-row { background:#0a0f1d; border-bottom:2px solid var(--border); }
+    tr.details-row td { padding:12px 20px 16px 40px; }
+    .nested-table { width:100%; border-collapse:collapse; background:var(--surface); border-radius:8px; overflow:hidden; border:1px solid var(--border); font-size:0.68rem; }
+    .nested-table th { background:var(--surface2); padding:8px 12px; font-size:0.56rem; text-transform:uppercase; color:var(--muted); text-align:left; }
+    .nested-table td { padding:8px 12px; border-bottom:1px solid rgba(30,45,69,.4); }
+
+    /* Badges */
+    .badge-res { display:inline-block; padding:3px 9px; border-radius:20px; font-size:.62rem; font-weight:700; white-space:nowrap; }
+    .res-normal    { background:rgba(16,185,129,.15); color:#10b981; border:1px solid rgba(16,185,129,.3); }
+    .res-desistido { background:rgba(168,85,247,.15); color:#c084fc; border:1px solid rgba(168,85,247,.3); }
+    .res-desvio    { background:rgba(59,130,246,.15);  color:#3b82f6; border:1px solid rgba(59,130,246,.3); }
+    .res-pendiente { background:rgba(245,158,11,.15);  color:#f59e0b; border:1px solid rgba(245,158,11,.3); }
+    .res-enf       { background:rgba(168,85,247,.15);  color:#a855f7; border:1px solid rgba(168,85,247,.3); }
+    .res-retenido  { background:rgba(239,68,68,.15);   color:#f87171; border:1px solid rgba(239,68,68,.3); }
+    .badge-com     { background:rgba(16,185,129,.15); color:#10b981; }
+
+    .badge-canal { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:.62rem; font-weight:700; white-space:nowrap; }
+    .canal-alerta    { background:rgba(239,68,68,.18); color:#f87171; border:1px solid rgba(239,68,68,.4); }
+    .canal-empleador { background:rgba(59,130,246,.18); color:#60a5fa; border:1px solid rgba(59,130,246,.4); }
+    .canal-retenido  { background:rgba(245,158,11,.18); color:#fbbf24; border:1px solid rgba(245,158,11,.4); }
+
+    .badge-apto { display:inline-flex; align-items:center; gap:4px; padding:2px 7px; border-radius:5px; font-size:.60rem; font-weight:700; white-space:nowrap; }
+    .apto-si    { background:rgba(16,185,129,.15); color:#34d399; border:1px solid rgba(16,185,129,.35); }
+    .apto-no    { background:rgba(245,158,11,.15); color:#fcd34d; border:1px solid rgba(245,158,11,.35); }
+    .apto-bloq  { background:rgba(239,68,68,.15);  color:#fca5a5; border:1px solid rgba(239,68,68,.35); }
+
+    .stat-card.red { border-color:var(--red); }
+    .stat-card.red .stat-val { color:var(--red); }
+    .stat-card.purple { border-color:var(--purple); }
+    .stat-card.purple .stat-val { color:var(--purple); }
+
+    .btn-expand { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:4px 8px; font-size:0.65rem; cursor:pointer; display:inline-flex; align-items:center; gap:5px; transition:all .15s; }
+    .btn-expand:hover { background:var(--border); color:var(--blue); }
+
+    /* LOTE / ESTABLECIMIENTO GROUP ROW - Cabecera destacada con alto contraste */
+    tr.lote-header-row {
+      background: #090f1f !important;
+      border-top: 3px solid #38bdf8 !important;
+      border-bottom: 2px solid #1e293b !important;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+      position: sticky;
+      z-index: 4;
+    }
+    tr.lote-header-row:hover {
+      background: #0d1730 !important;
+    }
+    tr.lote-header-row td {
+      padding: 10px 12px;
+      vertical-align: middle;
+    }
+
+    /* FILAS DE DETALLE DE EMPLEADOS CON COLORES PASTEL SUAVES SEGUN ESTADO */
+    tr.emp-child {
+      display: none; /* Comprimido / colapsado por defecto */
+      transition: background-color .15s ease;
+    }
+    tr.emp-child td {
+      padding: 7px 10px;
+    }
+    /* Normal Laboral: Tinte Menta Pastel suave */
+    tr.emp-child.pastel-normal {
+      background: rgba(16, 185, 129, 0.08) !important;
+      border-left: 4px solid #34d399 !important;
+    }
+    tr.emp-child.pastel-normal:hover {
+      background: rgba(16, 185, 129, 0.16) !important;
+    }
+    /* Enfermedad Profesional: Tinte Coral / Rosa Pastel suave */
+    tr.emp-child.pastel-enf-prof {
+      background: rgba(244, 63, 94, 0.09) !important;
+      border-left: 4px solid #fb7185 !important;
+    }
+    tr.emp-child.pastel-enf-prof:hover {
+      background: rgba(244, 63, 94, 0.18) !important;
+    }
+    /* Pendiente Reconfirmación: Tinte Vainilla / Ámbar Pastel suave */
+    tr.emp-child.pastel-reconf {
+      background: rgba(245, 158, 11, 0.10) !important;
+      border-left: 4px solid #fbbf24 !important;
+    }
+    tr.emp-child.pastel-reconf:hover {
+      background: rgba(245, 158, 11, 0.19) !important;
+    }
+    /* Ausente / Retenido / Otros: Tinte Pizarra / Lavanda Pastel suave */
+    tr.emp-child.pastel-ausente {
+      background: rgba(148, 163, 184, 0.06) !important;
+      border-left: 4px solid #94a3b8 !important;
+    }
+    tr.emp-child.pastel-ausente:hover {
+      background: rgba(148, 163, 184, 0.14) !important;
+    }
+
+    /* Badges de trazabilidad de VEs emitidas */
+    .badge-ve-total {
+      background: rgba(16, 185, 129, 0.18);
+      color: #34d399;
+      border: 1px solid rgba(52, 211, 153, 0.5);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-ve-reco {
+      background: rgba(245, 158, 11, 0.18);
+      color: #fbbf24;
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.62rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-lote-info {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-size: 0.65rem;
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn-comunicar-lote {
+      background: rgba(59,130,246,.2);
+      border: 1px solid var(--blue);
+      color: #93c5fd;
+      border-radius: 6px;
+      padding: 3px 10px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all .2s;
+    }
+    .btn-comunicar-lote:hover {
+      background: var(--blue);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(59,130,246,0.4);
+    }
+    tr.emp-child td.col-child-indent {
+      position: relative;
+      padding-left: 28px !important;
+    }
+    tr.emp-child td.col-child-indent::before {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: rgba(59,130,246,0.3);
+    }
+
+    .obs-box { font-size:0.68rem; color:#f8fafc; background:rgba(255,255,255,0.04); padding:4px 8px; border-radius:5px; border-left:3px solid var(--blue); word-break:break-word; }
+
+    /* Toasts */
+    #toastCom { position:fixed; bottom:20px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:8px; }
+    .toast-item { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:9px 16px; font-size:0.75rem; box-shadow:0 4px 14px rgba(0,0,0,0.5); opacity:0; transform:translateY(8px); transition:all .3s; }
+    .toast-item.show { opacity:1; transform:translateY(0); }
+    .toast-success { border-color:var(--green); color:var(--green); }
+    .toast-warning { border-color:var(--amber); color:var(--amber); }
+    .toast-error   { border-color:var(--red);   color:var(--red); }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <div class="spinner"></div>
+  <p>Cargando registros comunicables por empleado...</p>
+</div>
+
+<div id="toastCom"></div>
+
+<!-- HEADER -->
+<div class="dash-header">
+  <div class="logo">
+    <div class="logo-icon"><i class="bi bi-send-check-fill"></i></div>
+    <div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="logo-title">Comunicación de Resultados</div>
+        <span class="badge-impl">v 091026 12:15:00 (v165)</span>
+      </div>
+      <div class="logo-sub">GRV · Grupo Río Varadero · Auditoría Médica</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <a href="<?= url ?>" class="btn-head"><i class="bi bi-arrow-left"></i> Auditoría</a>
+    <a href="<?= url ?>?v=empleados" class="btn-head"><i class="bi bi-people"></i> Empleados</a>
+    <a href="<?= url ?>?v=reclamos" class="btn-head"><i class="bi bi-file-earmark-x"></i> Reclamos</a>
+    <a href="<?= url ?>?v=desvios" class="btn-head"><i class="bi bi-exclamation-octagon"></i> Desvíos</a>
+    <a href="<?= url ?>?v=desvios&abm=1" target="_blank" class="btn-head" title="Gestionar catálogo de estudios adicionales (ABM)"><i class="bi bi-tags-fill"></i> Adicionales</a>
+    <a href="<?= url ?>?v=avance" class="btn-head"><i class="bi bi-speedometer2"></i> Avance</a>
+    <a href="<?= url ?>?v=cobertura" class="btn-head"><i class="bi bi-grid-3x3-gap"></i> Cobertura</a>
+    <label style="font-size:.6rem; color:var(--muted); white-space:nowrap; margin-left:6px;">Fecha:</label>
+    <input type="date" id="fechaCom" class="date-input" title="Fecha de comunicación">
+    <button id="btnGenerarVE" class="btn-comunicar" style="background:#0f6b52; border-color:#0f6b52; box-shadow:0 2px 8px rgba(15,107,82,0.4); font-weight:700; padding:6px 16px;" disabled onclick="generarNotasVESeleccionados()" title="Generar Nota Oficial VE en PDF con tabla de resultados, guardarla en Drive y registrar fecha de cierre">
+      <i class="bi bi-file-earmark-pdf-fill"></i>
+      Generar Nota VE (<span id="cntLotesSel">0 seleccionados</span>)
+    </button>
+    <button class="btn-head" id="btnSyncCom" onclick="sincronizarConMadre(this)" title="Acumular y sincronizar hoja independiente Comunicaciones">
+      <i class="bi bi-arrow-repeat"></i> Sincronizar Lotes
+    </button>
+    <button class="btn-head" onclick="limpiarCacheUI(this)" title="Borrar memoria y caché del servidor">
+      <i class="bi bi-trash3"></i> Limpiar Memoria
+    </button>
+    <button class="btn-head" onclick="window.close()"><i class="bi bi-x-lg"></i> Cerrar</button>
+  </div>
+</div>
+
+<!-- BODY -->
+<div class="dash-body" id="dashBody" style="display:none;">
+
+  <!-- Filtros -->
+  <div class="filter-bar">
+    <input type="text" id="filtroCuil" class="search-input" style="min-width:125px; max-width:155px;"
+      placeholder="🔍 CUIL..." oninput="filtrarVista()">
+    <input type="text" id="filtroNombre" class="search-input" style="min-width:150px;"
+      placeholder="👤 Empleado / Estudio..." oninput="filtrarVista()">
+    <input type="text" id="filtroContrato" class="search-input" style="min-width:145px; max-width:190px;"
+      placeholder="📄 CUIT / SRT / Frecuencia..." oninput="filtrarVista()">
+    <input type="text" id="filtroEstab" class="search-input" style="min-width:140px;"
+      placeholder="🏢 Establecimiento..." oninput="filtrarVista()">
+    <select id="selCanal" class="filter-select" onchange="filtrarVista()">
+      <option value="">Todos los canales y destinos</option>
+      <option value="PENDIENTE_CONFIRMACION">⛔ Prioridad: Pendiente de Confirmación (Bloquea lote)</option>
+      <option value="ALERTA_EMPLEADO">🚨 Alerta Inmediata (Empleado)</option>
+      <option value="LOTE_EMPLEADOR_APTO">🏢 Lote Empleador (Cerrado y Apto)</option>
+      <option value="LOTE_EMPLEADOR_ESPERA">⏳ Lote Empleador (En espera de cierre)</option>
+      <option value="RETENIDO">🚫 Retenido (Ausente / Defectuoso)</option>
+    </select>
+    <select id="selEstadoCom" class="filter-select" onchange="filtrarVista()">
+      <option value="pendientes">Pendientes de comunicar</option>
+      <option value="comunicados">Ya comunicados</option>
+      <option value="todos">Todos (Pendientes y Comunicados)</option>
+    </select>
+    <select id="selPrestador" class="filter-select" onchange="filtrarVista()">
+      <option value="">Todos los prestadores</option>
+    </select>
+    <select id="selEstadoCons" class="filter-select" onchange="filtrarVista()">
+      <option value="">Todos los estados clínicos</option>
+      <option value="Normal Laboral">Normal Laboral</option>
+      <option value="Normal (c/ Desistido)">Normal (c/ Desistido)</option>
+      <option value="Desistido Total">Desistido Total</option>
+      <option value="Desvío">Desvío</option>
+      <option value="Pendiente de Confirmación">Pendiente de Confirmación</option>
+      <option value="Enfermedad Profesional">Enfermedad Profesional</option>
+      <option value="Retenido (Ausente / Defecto)">Retenido (Ausente / Defecto)</option>
+    </select>
+    <select id="selOrg" class="filter-select" onchange="filtrarVista()">
+      <option value="">Todos los organismos</option>
+    </select>
+    <button class="btn-head" onclick="limpiarFiltros()" title="Limpiar todos los filtros">
+      <i class="bi bi-eraser"></i> Limpiar
+    </button>
+    <button class="btn-head" onclick="toggleTodosLosLotes(true)" title="Expandir todos los lotes y establecimientos">
+      <i class="bi bi-arrows-expand"></i> Expandir Lotes
+    </button>
+    <button class="btn-head" onclick="toggleTodosLosLotes(false)" title="Colapsar todos los lotes y establecimientos">
+      <i class="bi bi-arrows-collapse"></i> Colapsar Lotes
+    </button>
+  </div>
+
+  <!-- Stats según Matriz de Negocio -->
+  <div class="stats-bar">
+    <div class="stat-card red" title="Enfermedad Profesional y Pendiente de Confirmación: se informan inmediato al empleado puntual sin esperar cierre de lote">
+      <div>
+        <div class="stat-val" id="statAlertas">0</div>
+        <div class="stat-lbl">Alertas Médicas (Empleado)</div>
+      </div>
+    </div>
+    <div class="stat-card green" title="Normal, Desvío, Desistido: con lote 100% auditado y sin ausentes/defectos pendientes">
+      <div>
+        <div class="stat-val" id="statLotesAptos">0</div>
+        <div class="stat-lbl">Lotes Aptos (Empleador)</div>
+      </div>
+    </div>
+    <div class="stat-card amber" title="Lotes incompletos esperando cierre o casos retenidos que requieren gestión">
+      <div>
+        <div class="stat-val" id="statEspera">0</div>
+        <div class="stat-lbl">En Espera / Retenidos</div>
+      </div>
+    </div>
+    <div class="stat-card blue" title="Empleados con fecha de comunicación ya registrada">
+      <div>
+        <div class="stat-val" id="statComun">0</div>
+        <div class="stat-lbl">Ya Comunicados</div>
+      </div>
+    </div>
+    <div class="stat-card" title="Empleados seleccionados para comunicar">
+      <div>
+        <div class="stat-val" id="statSel">0</div>
+        <div class="stat-lbl">Seleccionados (VE)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <div class="table-card">
+    <div class="table-scroll">
+      <table class="emp-table">
+        <thead>
+          <tr>
+            <th style="width:36px;" class="center">
+              <input type="checkbox" id="checkAll" onchange="toggleTodos(this)" style="accent-color:var(--blue);" title="Seleccionar todos los visibles aptos">
+            </th>
+            <th style="width:40px;" class="center">Ver</th>
+            <th style="width:110px;">CUIL</th>
+            <th style="min-width:170px;">Empleado</th>
+            <th style="min-width:125px;">Prestador</th>
+            <th style="min-width:185px;">Lote (CUIT / SRT / Frecuencia)</th>
+            <th style="width:165px;">Canal / Destinatario</th>
+            <th style="width:160px;">Cierre / Aptitud</th>
+            <th style="width:145px;">Estado Clínico</th>
+            <th style="width:85px;" class="center">Estudios</th>
+            <th style="width:90px;" class="center">F. Auditoría</th>
+            <th style="width:115px;" class="center">Comunicación</th>
+          </tr>
+        </thead>
+        <tbody id="comBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let _allData = [];
+let _seleccionados = new Set();      // CUILs seleccionados
+let _lotesSeleccionados = new Set(); // Claves de lote seleccionados
+let _mapaLotesGlobal = new Map();     // Datos indexados de lotes por clave única
+
+// ---------------------------------------------------------------
+// Logo Horizonte Seguros y Sello/Firma oficial de Prestaciones Médicas
+// ---------------------------------------------------------------
+const LOGO_B64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAyAAAAD4CAYAAAAU9YK3AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAOvgAADr4B6kKxwAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAACAASURBVHic7N15fJxV9T/wz7kzSfd2Jl0ySbFULbgU2oQipZkJpCIgooBiRGQRgaYVN1xx/4Ir/lxAQaAtKIqItiLijqgtTSYtS+kCRbFlEUqWLllIlzQzzz2/PxKwWzJ3JvPMJNPP+/UqL9qc597TdDLznOdusqChogHkCwHuXxJb/91853Ekq2uo2AxgRr7zKCiidy2Jbrg032kQERHR8BQUIJrvJAqWYFO+UyAiIiIiGkpMvhMgIiIiIqIjBwsQIiIiIiLKmWC+EyDyk4h8AYoJ+c6jsMjmfGdAREREwxcLECpoi6PrfpPvHIiIiIjofzgFi4iIiIiIcoYFCBERERER5QwLECIiIiIiyhkWIERERERElDMsQIiIiIiIKGdYgBARERERUc6wACEiIiIiopxhAUJERERERDnDAoSIiIiIiHKGBQgREREREeVMMN8JEPnpqhUzxybHjQzkO49CMqanuOeGqtV7850HERERDU8sQKigJYuK1qHbm5HvPArJbtlzF4BL850HERERDU+cgkVERERERDnDAoSIiIiIiHKGBQgREREREeUM14BQQVOjH4WasfnOo5AYlf/mOwciIiIavliAUEFbWrXhgXznQERERET/wylYRERERESUMyxAiIiIiIgoZ1iAEBERERFRzrAAISIiIiKinGEBQkREREREOcMChIiIiIiIcoYFCBERERER5QwLECIiIiIiyhkWIERERERElDMsQIiIiIiIKGeC+U6AyE91q+aUwaAo33kUEs9077qjalNbvvMgIiKi4YkFCBU2460CMCPfaRSSgAbvAnBpvvMgIiKi4YlTsIiIiIiIKGdYgBARERERUc6wACEiIiIiopzhGhAqaBb28oAGx+Q7j0KiJvFSvnMgIiKi4YsFCBW022Mb6/OdAxERERH9D6dgERERERFRzrAAISIiIiKinGEBQkREREREOcMChIiIiIiIcoYFCBERERER5QwLECIiIiIiyhkWIERERERElDMsQIiIiIiIKGdYgBARERERUc6wACEiIiIiopwJ5jsBIj8t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";
+
+const SELLO_B64 = "data:image/jpeg;base64,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cKv6n1qaiipbvqxhRRRQAUUUUAFFMeWOMZd1UepOKqvqdsvCFpW9I1LfypqLeyC5dorP+130v+psCo/vTOF/QZpDBqcv37uOEdxGmT+ZquTuxXNHNQzXdtAP308af7zAVU/siJzme5uZvZpCB+QxU8Om2cH+rtowfUrk/maLQXUNSI6tan/Vl5f+uaFqQ3t5IP8AR9Pk+szBB/U1fCgDAAApaOaK6BqZ4XVpQd0lvAP9lS5/XFNGmTP/AK/Ubh/ZMIP0FaVFHtH0CxnrotiDl4mlPrI5b+Zq3HbQRD93DGv0UCpaKTnJ7sLBgCiiipGFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFIQGGCMilooAKKKKACiiigAooooAKKKKACkJAGTTJozLHtDshyDletQfYI3YmZ5Jc9mbj8hTVuoBJqVlESGuELD+FTk/kKiOovJ/x7WU8o9SuwfrVyOCKIYjjVP8AdGKkxVXiugtShnU5lGBBbfXLn+gpfsEr/wCvvp2PcIQg/Tn9avUUc76BYqJp1orbvJDN/ef5j+tWlUKMAAD2paKltvcYUUUUgCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACjOaKAAKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKAP/2Q==";
+
+// Diccionario PART completo (Código ESOP -> Descripción Oficial de Riesgo SRT)
+const PART_LOOKUP = {"40001":"ACEITES O GRASAS DE ORIGEN MINERAL O SINTÉTICO","40002":"ACIDO CIANHÍDRICO","40003":"ACIDO CLORHIDRICO","40004":"ACIDO FLUORHIDRICO","40005":"ACIDO FOSFORICO","40006":"ACIDO MERCAPTOPROPIÓNICO Y SUS DERIVADOS","40007":"ACIDO NITRICO","40008":"ACIDO PERCLORICO","40009":"ACIDO SULFURICO","40010":"ACRILONITRILO","40011":"ALCOHOL BUTILICO","40012":"ALCOHOL FURFURILICO","40013":"ALCOHOL ISOPROPILICO","40014":"ALCOHOL METILICO","40015":"ALCOHOL PROPILICO","40016":"ALGODÓN","40017":"ALUMINA CALCINADA","40019":"AMINAS AROMÁTICAS Y SUS DERIVADOS","40020":"GAS AMONÍACO","40021":"AMONIOS CUATERNARIOS Y SUS SALES(EN ESPECIAL DETERG.CATIÓNICOS)","40022":"ANHÍDRIDO FTÁLICO","40023":"ANHÍDRIDO HEXAHIDROFTÁLICO","40024":"ANHÍDRIDO HIMICO","40025":"ANHÍDRIDO SULFUROSO","40026":"ANHÍDRIDO TRIMELITICOS","40027":"ANILINAS","40028":"ANTIBIOTICOS MACROLIDOS","40029":"ANTIMONIO Y SUS COMPUESTOS","40031":"ASBESTO","40033":"AZODICARBANAMIDA","40034":"AZUCARES","40035":"BERILIO Y SUS COMPUESTOS","40036":"BENCENO","40039":"BENZONITRILOS","40040":"BROMOXINIL","40041":"BROMURO DE METILO","40042":"BISULFITOS","40043":"BIFENILOS POLICLORADOS","40044":"CADMIO Y SUS COMPUESTOS","40045":"CAÑAMO","40046":"CAOLIN","40047":"CARBARIL","40048":"CARBÓN MINERAL (MATERIAL PULVERULENTO)","40049":"CEMENTO","40050":"ACETONAS","40051":"CIANOACRILATOS","40052":"CIANUROS","40053":"GAS CLORO","40054":"CLOROMETIL METIL ÉTER","40055":"CLOROPLATINATOS","40056":"CLORPIRIFOS","40057":"CLORURO DE METILENO","40058":"CLORURO DE VINILO","40059":"CARBURO DE COBALTO","40061":"CROMO Y CROMATOS","40062":"D.D.T.","40063":"DERIVADOS DEL FENOL","40064":"DERIVADOS DEL PETRÓLEO","40065":"DIACRILATOS","40066":"DIAZINON","40067":"DIAZONIO (SALES DE)","40068":"DICICLO HEXIL CARBONIMIDA","40069":"1,2 DICLOROETANO","40071":"1,2 DICLOROPROPANO","40072":"DICLORVOS","40073":"DICLOROETILENO","40074":"DIELDRÍN","40075":"DISOCIANATO DE HEXAMETILENO","40076":"DINITROFENOL Y DERIVADOS","40077":"DINITRO ORTO CRESOL","40078":"DINOSEB","40079":"DIÓXIDO DE NITRÓGENO","40080":"DISULFURO DE CARBONO","40081":"DITIOCARBAMATOS","40082":"DODECIL-AMONIO-ETIL-GLICINA","40083":"EPICLORHIDRINA","40084":"ESMERIL","40085":"ESTIRENO (VINILBENCENO)","40086":"ESTROGENOS DE SINTESIS","40087":"ETERES","40088":"FENOTIAZIDAS","40089":"FLUOR GAS","40090":"FLUOR Y SUS COMPUESTOS","40091":"FLORUROS","40092":"FORMALDEHIDO","40093":"FOSFORO Y SUS COMPUESTOS","40094":"FOSFUROS","40095":"FURFURAL","40096":"PRODUCCIÓN DE COQUE (1)","40097":"GRANITO","40098":"HEXACLOROBENCENO","40099":"HEXACLORONAFTALENO","40100":"N-HEXANO","40101":"HIDROCARBUROS AROMATICOS POLICICLICOS (EXTRACTOS AROMATICOS )","40102":"HIDRÓGENO SELENIADO","40103":"HIDRÓGENO SULFURADO","40104":"HIDROQUINONA - BENZOQUINONA - ESTERES DERIVADOS","40105":"HIPOCLORITOS ALCALINOS","40106":"HIPOPIGMENTASTE DE LA PIEL","40107":"INSECTICIDAS CARBAMATOS","40108":"PLAGUICIDAS ORGANOFOSFORADO","40109":"ISOCIANATOS ORGÁNICOS","40110":"N-ISOPROPIL-N-PARAFENIL-ENDIAMINA","40111":"IOXINIL","40112":"LINDANO","40113":"LINO","40114":"MALATHION","40115":"MANGANESO Y SUS COMPUESTOS","40116":"MERCAPTO-BENZOTIAZOL","40117":"MERCURIO INORGÁNICO","40119":"METACRILATO DE BUTILO","40120":"METACRILATO DE ETILO","40121":"METACRILATO DE METILO","40122":"METIL - BUTIL - CETONA","40123":"METILENO DIFENIL ISOCIANATO","40124":"METOMIL","40125":"MICA","40126":"MONOCLOROBENCENO","40127":"MONOCROTOPHOS","40128":"MONÓXIDO DE CARBONO","40129":"NIEBLAS Y AEROSOLES DE ACIDOS MINERALES","40130":"NIQUEL Y SUS COMPUESTOS","40131":"NITRATOS ALIFATICOS","40132":"NITROBENCENO","40134":"NITRODERIVADOS AROMATICOS","40135":"NITROGLICERINA","40136":"OXIDO DE ETILENO","40137":"OXIDOS DE HIERRO","40138":"PARA-TER-BUTIL-CATECOL","40139":"PARA-TER-BUTIL-FENOL","40140":"PARATHION","40141":"PENICILINAS Y SUS SALES","40142":"PENTACLOROFENOL","40143":"PENTOXIDO DE VANADIO","40144":"PERSULFATOS ALCALINOS","40145":"PLOMO Y COMPUESTOS ALQUILICOS","40146":"PLOMO INORGANICO","40147":"POLVOS ABRASIVOS","40148":"PROPOXUR","40149":"RANITIDINA","40150":"RESINAS EPOXICAS","40151":"SELENIO Y SUS COMPUESTOS","40152":"SERICINA","40153":"SILICE ( INHALADO EN FORMA DE CUARZO O CRISTOBALITA)","40154":"SISAL","40155":"SULFITOS,","40156":"SULFURO DE TETRAMETIL TIOURAM","40157":"SUSTANCIA NOCIVA PARA EL ESMALTE Y ESTRUC. DIENTES","40158":"SUSTANCIAS SENSIBILIZANTES DE LA PIEL- AGENTES QUÍM","40159":"SUSTANCIAS SENSIBILIZANTES DEL PULMON","40160":"SUSTANCIAS SENSIBILIZANTES DE LAS VÍAS RESPIRATORIAS","40161":"TALCO","40162":"TEFLÓN","40164":"TETRACLORURO DE CARBONO","40165":"TIOGLICOLATO DE AMONIO","40166":"TIOUREA (DERIVADOS)","40167":"TITANIO (CARBUROS METALES DUROS)","40168":"TOLUENO","40169":"TOLUEN DIISOCIANATO","40170":"O-TOLUIDINA","40171":"TRIBROMOMETANO","40172":"111-TRICLOROETANO","40173":"TRICLOROETILENO","40174":"TRICLOROMETANO (CLOROFORMO)","40175":"TRINITROTOLUENO (TNT)","40176":"TUNGSTENO (CARBUROS METALES DUROS)","40179":"XILENO","40180":"CEFALOSPORINA Y SUS DERIVADOS","40181":"ENZIMAS DE ORIGEN ANIMAL, VEGETAL O BACTERIANO","40182":"SUSTANCIAS IRRITANTES DE LAS VIAS RESPIRATORIAS","40183":"MONOBROBENCENO","40184":"TRICLOROETANO","40185":"ACRILATOS","40186":"BENZOQUINONAS","40187":"DINITROTOLUENO","40188":"FENOL","40189":"METACRILATOS","40190":"DINITROBENCENO","40191":"ALCOHOL ISOBUTILICO","40192":"HARINAS","40193":"TETRACLOROETILENO (PERCLOROETILENO)","40201":"ACEITES MINERALES NO TRATADOS O LIGERAMENTE TRATADOS","40202":"ALCOHOL ISOPROPILICO (MANUFACTURA POR EL METODO DE LOS ACIDOS FUERTES)","40203":"ALQUITRAN","40204":"4 AMINO BIFENILO","40205":"ASFALTOS","40206":"MANUFACTURA DE AURAMINA","40207":"BENCIDINA (P-AMINO BIFENILO)","40208":"CROMO VI Y SUS SALES","40210":"GAS MOSTAZA ( IPERITA O SULFURO DE B,BPRIMA DICLORODIETILO)","40211":"HEMATITA, MINERIA DE PROFUNDIDAD CON EXPOSICION A RADON","40212":"HOLLIN","40213":"MAGENTA, MANUFACTURA DE","40214":"B-NAFTILAMINA","40216":"RADON 222 Y SUS PRODUCTOS DE DECAIMIENTO","40217":"TALCO CONTENIENDO FIBRAS AMIANTIFORMES","40220":"EXPOSICIÓN OCUPACIONAL ASOCIADA AL PROCESO ACHESON (1)","40221":"1,3-BUTADIENO (1)","40222":"2,3,4,7,8-PENTACLORODIBENZOFURANO (1)","40223":"2,3,7,8-TETRACLORODIBENZO-P-DIOXINA (1)","40224":"3,4,5,3´,4´-PENTACLOROBIFENILO (PCB-126) (1)","40225":"4,4´-METILENBIS(2-CLOROANILINA) (MOCA) (1)","40226":"ARSÉNICO Y SUS COMPUESTOS INORGÁNICOS (1)","40227":"AZATIOPRINA (1)","40228":"BENZO [A] PIRENO (1)","40229":"BIFENILOS POLICLORADOS, COMO DIOXINA, CON UN FACTOR DE TOXICIDAD EQUIVALENTE (TEF)BIFENILOS POLICLORADOS, COMO DIOXINA, CON UN FACTOR DE TOXICIDAD EQUIVALENTE (TEF)","40230":"BUSULFAN (1)","40231":"CICLOFOSFAMIDA (1)","40232":"CICLOSPORINA (1)","40233":"CLORAMBUCIL (1)","40234":"COLORANTES QUE SE METABOLIZAN A BENCIDINA (1)","40235":"DESTILACIÓN DE ALQUITRAN DE HULLA (1)","40236":"ERIONITA (1)","40237":"ETOPÓSIDO (1)","40238":"ETOPÓSIDO EN COMBINACIÓN CON CISPLATINO Y BLEOMICINA (1)","40239":"FIBRAS ANFÍBOLES DE FLUORO-EDENITA (1)","40240":"FÓSFORO-32, COMO FOSFATO (1)","40241":"GASIFICACIÓN DEL CARBÓN (1)","40242":"HUMO DE TABACO, AJENO (1)","40243":"IODOS RADIACTIVOS, INCLUIDO EL IODO-131 (1)","40244":"MELFALÁN (1)","40245":"NIEBLAS DE ÁCIDOS INORGÁNICOS FUERTES (1)","40246":"N-NITROSONORNICOTINA (NNN) Y 4-(N-NITROSOMETILAMINA)-1-(3- PIRIDIL)-1-BUTANONA (NNK) (1)","40247":"PLUTONIO (1)","40248":"PRODUCTOS DE FISIÓN, INCLUIDO EL ESTRONCIO-90 (1)","40249":"RADIO-224 Y SUS PRODUCTOS DE DECAIMIENTO (1)","40250":"RADIO-226 Y SUS PRODUCTOS DE DECAIMIENTO (1)","40251":"RADIO-228 Y SUS PRODUCTOS DE DECAIMIENTO (1)","40252":"RADIONUCLEIDOS, EMISORES DE PARTÍCULAS ALFA, INTERNAMENTE DEPOSITADOS (1)","40253":"RADIONUCLEIDOS, EMISORES DE PARTÍCULAS BETA, INTERNAMENTE DEPOSITADOS (1)","40254":"TORIO-232 Y SUS PRODUCTOS DE DECAIMIENTO (1)","40255":"AFLATOXINAS (1)","60001":"BRUCELOSIS","60004":"CARBUNCLO","60006":"LEPTOSPIROSIS","60007":"CLAMYDIA PSITTACI (PSITACOSIS)","60008":"HISTOPLASMOSIS","60009":"HIDATIDOSIS","60010":"PALUDISMO","60011":"LEISHMANIASIS","60012":"VIRUS AMARILICOS (FIEBRE AMARILLA)","60013":"FIEBRE HEMORRAGICA ARGENTINA","60017":"CANDIDA ALBICANS","60018":"HANTAVIRUS","80001":"CALOR","80002":"PRESIÓN SUPERIOR A LA PRESIÓN ATMOS. ESTANDAR","80003":"PRESIÓN INFERIOR A LA PRESIÓN ATMOS. ESTANDAR","80004":"POSIC.FORZADAS Y GESTOS REPETITIVOS (MIEMBRO SUP.)","80004GR":"GESTOS REPETITIVOS MIEMBROS SUPERIORES","80004PF":"POSICIONES FORZADAS MIEMBROS SUPERIORES","80005":"POSIC.FORZADAS Y GESTOS REPETITIVOS (MIEMBRO INF.)","80006":"SOBRECARGA DEL USO DE LA VOZ","80009":"AUMENTO DE LA PRESION INTRAABDOMINAL","80010":"AUMENTO DE LA PRESION VENOSA EN MIEMBROS INFERIORES","80011":"CARGA,POSICIONES FORZADAS Y GESTOS REPETITIVOS DE LA COLUMNA LUMBOSACRA","90001":"RUIDO (NPS SUPERIOR A 85 DB A)","90002":"RADIACIONES IONIZANTES","90003":"RADIACIONES INFRARROJAS","90004":"RADIACIONES ULTRAVIOLETAS","90004S":"RADICIACION SOLAR","90005":"RAYOS LÁSER","90006":"ILUMINACIÓN INSUFICIENTE","90007":"VIBRAC. TRANSM.EXTRE.SUP. POR MAQ.O HERR.","90008":"VIBRACIONES DE CUERPO ENTERO","90010":"RADIACIÓN NEUTRÓNICA (1)","90011":"RAYOS X Y RADIACIÓN GAMMA (1)"};
+
+function cleanCellStr(v) {
+  if (v === null || v === undefined) return '';
+  const s = String(v).trim();
+  if (s.startsWith('#') || s === '#N/A' || s === '#REF!' || s === '#VALUE!' || s === '#VALOR!' || s === '#ERROR!' || s === '#NAME?' || s === '#¡REF!') return '';
+  return s;
+}
+
+function normalizeEsopCode(raw) {
+  let s = String(raw || '').trim();
+  return s.replace(/\.0+$/, '');
+}
+
+function resolveRiesgos(codigoRiesgoIndividual) {
+  const raw = cleanCellStr(codigoRiesgoIndividual);
+  if (!raw) return { codigos: '', descripciones: '', faltantes: [] };
+  const codigos = raw.split(',').map(s => normalizeEsopCode(s)).filter(Boolean);
+  const descs = [];
+  const faltantes = [];
+  codigos.forEach(cod => {
+    const descripcion = PART_LOOKUP[cod];
+    if (descripcion) {
+      descs.push(descripcion);
+    } else {
+      descs.push('(sin descripción en PART)');
+      faltantes.push(cod);
+    }
+  });
+  return { codigos: codigos.join('\n'), descripciones: descs.join('\n'), faltantes };
+}
+
+function formatearFechaISO(str) {
+  if (!str) return '';
+  const p = str.split('-');
+  if (p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+  return str;
+}
+
+function pdfFileName(est) {
+  const safe = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, '-').trim();
+  return `Comunicacion de Resultados de EMP - ${safe(est.nombre)} - ${safe(est.codigoSrt)}.pdf`;
+}
+
+// ---------------------------------------------------------------
+// Generación oficial del PDF VE (Hoja 1 Portrait + Hoja 2 Landscape)
+// ---------------------------------------------------------------
+function buildPdf(est, fechaEmisionParam) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const fechaEmision = fechaEmisionParam || est.fechaEmision || (document.getElementById('fechaCom')?.value ? formatearFechaISO(document.getElementById('fechaCom').value) : new Date().toLocaleDateString('es-AR'));
+  const email = 'amilano@horizonte.com.ar';
+  const telefono = '(2920) 496500 Int. 566';
+
+  const marginL = 48, marginR = 48;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const usableWidth = pageWidth - marginL - marginR;
+  let y = 56;
+
+  // Logo Horizonte Seguros (proporción oficial 800x248)
+  const logoW = 140, logoH = logoW * (248 / 800);
+  const logoY = 24;
+  doc.addImage(LOGO_B64, 'PNG', marginL, logoY, logoW, logoH);
+  y = logoY + logoH + 14;
+
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
+  doc.text('Ref: "Notificación del informe de resultados de los Exámenes Médicos Periódicos efectuados"', marginL, y, { maxWidth: usableWidth });
+  y += 22;
+
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+  if (est.cuitContrato) { doc.text(`Cuit del Contrato: ${est.cuitContrato}`, marginL, y); y += 14; }
+  if (est.nombreContrato) { doc.text(`Nombre del Contrato: ${est.nombreContrato}`, marginL, y); y += 14; }
+  doc.text(`Establecimiento: ${est.nombre}   |   Código SRT: ${est.codigoSrt}`, marginL, y); y += 14;
+  doc.text(`Fecha: ${fechaEmision}`, marginL, y); y += 22;
+
+  const paragraphs = [
+    'Estimado cliente, de nuestra mayor consideración:',
+    'Cumplimos en remitir por este medio el informe de resultados referido a la convocatoria de la realización de los Exámenes Médicos Periódicos al personal de su empresa. (el mismo se encuentra a continuación, como Hoja 2 de esta nota)',
+    'A su vez es oportuno asesorar respecto las posibles clasificaciones que este informe de resultados puede incluir y que se detalla a continuación:',
+  ];
+  doc.setFontSize(10);
+  paragraphs.forEach(p => {
+    const lines = doc.splitTextToSize(p, usableWidth);
+    doc.text(lines, marginL, y);
+    y += lines.length * 13 + 6;
+  });
+
+  doc.setFont('helvetica', 'bold'); doc.text('Posible clasificación de los resultados incluidos en el "informe de Resultados"', marginL, y, { maxWidth: usableWidth });
+  y += 18;
+
+  const clasificaciones = [
+    ['Normal Laboral:', 'Sin detectarse alteraciones en la salud de origen laboral.'],
+    ['Pendiente de Confirmación:', '(estado transitorio) Exámenes periódicos cuyos resultados muestran una anormalidad y a criterio médico deben continuar realizándose estudios para arribar a un diagnóstico.'],
+    ['Desvío:', 'Resultados que muestran una anormalidad que podría estar asociada a la exposición al agente de riesgo, sin otras manifestaciones de la enfermedad. Deben notificarse al Servicio de Medicina Laboral y al Servicio de Higiene y Seguridad del empleador para que adopte las medidas preventivas necesarias.'],
+    ['Enfermedad Profesional:', 'Implica un daño en la salud del trabajador expuesto, con manifestaciones de la enfermedad asociadas a la exposición al agente de riesgo. Debe notificarse al registro de la SRT.'],
+    ['Enfermedad Profesional Preexistente sin reagravación (CIE-10):', 'Anormalidades asociadas a la exposición ya informadas anteriormente a los registros de la SRT y sin signos de reagravamiento.'],
+    ['Ausente:', 'El trabajador no concurrió a la realización de todos los exámenes médicos previstos.'],
+  ];
+  doc.setFontSize(9.5);
+  clasificaciones.forEach(([label, text]) => {
+    doc.setFont('helvetica', 'bold');
+    const labelLines = doc.splitTextToSize(label, usableWidth);
+    doc.text(labelLines, marginL, y);
+    y += labelLines.length * 12;
+    doc.setFont('helvetica', 'normal');
+    const textLines = doc.splitTextToSize(text, usableWidth);
+    doc.text(textLines, marginL, y);
+    y += textLines.length * 12 + 6;
+    if (y > 760) { doc.addPage(); y = 56; }
+  });
+
+  y += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+  doc.text(`Ante cualquier consulta comunicarse a ${email}${telefono ? ' o al teléfono ' + telefono : ''}.`, marginL, y, { maxWidth: usableWidth });
+  y += 26;
+
+  doc.text('Sin más, saludamos atentamente', marginL, y); y += 20;
+
+  // Sello + firma digital (proporción 328x268)
+  const selloW = 130, selloH = selloW * (268 / 328);
+  if (y + selloH > 780) { doc.addPage(); y = 56; }
+  doc.addImage(SELLO_B64, 'JPEG', marginL, y, selloW, selloH);
+
+  // Hoja 2: tabla de resultados (A4 Landscape)
+  doc.addPage('a4', 'l');
+
+  const esFormatoFecha = (s) => /^\d{1,4}[\/\-]\d{1,2}[\/\-]\d{1,4}/.test(String(s || '').trim());
+
+  const body = (est.filas || []).map(f => {
+    const resR = resolveRiesgos(f.riesgoCodigo);
+    let resEmi = cleanCellStr(f.resultadoEmi);
+    let fechaRealiz = cleanCellStr(f.fechaRealizacion);
+
+    // Si por desfasaje de columna en los datos la fecha vino en resEmi e inversa:
+    if (esFormatoFecha(resEmi) && !esFormatoFecha(fechaRealiz)) {
+      const aux = resEmi;
+      resEmi = fechaRealiz;
+      fechaRealiz = aux;
+    }
+    // Si resEmi sigue siendo fecha, no permitirla como resultado clínico
+    if (esFormatoFecha(resEmi)) {
+      if (!fechaRealiz) fechaRealiz = resEmi;
+      resEmi = '';
+    }
+
+    const resNorm = resEmi.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    if (resNorm.includes('enfermedad profesional')) {
+      resEmi = 'Enfermedad Profesional';
+    } else if (resNorm.includes('normal')) {
+      resEmi = 'Normal Laboral';
+    } else if (resNorm.includes('desvio')) {
+      resEmi = 'Desvío';
+    } else if (resNorm.includes('pendiente')) {
+      resEmi = 'Pendiente de Confirmación';
+    } else if (resNorm.includes('ausente')) {
+      resEmi = 'Ausente';
+    } else if (resNorm.includes('desistido')) {
+      resEmi = 'Desistido';
+    } else if (resNorm.includes('defectuosa')) {
+      resEmi = 'Práctica defectuosa';
+    } else if (resEmi && !esFormatoFecha(resEmi)) {
+      resEmi = resEmi;
+    } else {
+      resEmi = '-';
+    }
+
+    return [
+      f.nombre || '',
+      f.cuil || '',
+      f.fechaIngreso || '',
+      f.fechaInicioPuesto || '',
+      f.puesto || '',
+      f.sector || '',
+      resR.codigos || f.riesgoCodigo || '',
+      resR.descripciones || f.riesgoDescripcion || '(sin descripción)',
+      cleanCellStr(f.examen) || '',
+      fechaRealiz || '',
+      resEmi,
+      cleanCellStr(f.fechaRealizacionEmr) || '',
+      cleanCellStr(f.resultadoEmr) || '',
+      cleanCellStr(f.observacion) || ''
+    ];
+  });
+
+  const hoja2Header = `Establecimiento: ${est.nombre}   |   Código SRT: ${est.codigoSrt}`;
+  const hoja2PageHeight = doc.internal.pageSize.getHeight();
+
+  doc.autoTable({
+    startY: 24,
+    margin: { top: 24, bottom: 20, left: 10, right: 10 },
+    didDrawPage: () => {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(0, 0, 0);
+      doc.text(hoja2Header, 10, 14);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(160, 160, 160);
+      doc.text(`Fecha de emisión: ${fechaEmision}`, 10, hoja2PageHeight - 8);
+      doc.setTextColor(0, 0, 0);
+    },
+    head: [['Apellido y Nombre', 'N.º de CUIL', 'Fecha de Ingreso', 'Fecha de Inicio de Exposición', 'Puesto de Trabajo', 'Sector',
+      'Agentes de Riesgo', 'Descripción del Agente de Riesgo', 'Exámenes a Realizar',
+      'Fecha de Realización', 'Resultado EMI', 'Fecha de Realización EMR', 'Resultado EMR', 'Observaciones']],
+    body,
+    styles: { fontSize: 6.5, cellPadding: 2.4, valign: 'top', halign: 'center', overflow: 'linebreak' },
+    headStyles: { fillColor: [15, 107, 82], textColor: 255, fontSize: 6.5, halign: 'center', valign: 'middle' },
+    columnStyles: {
+      0: { cellWidth: 90 }, 1: { cellWidth: 52 }, 2: { cellWidth: 42, overflow: 'ellipsize' }, 3: { cellWidth: 42, overflow: 'ellipsize' },
+      4: { cellWidth: 52 }, 5: { cellWidth: 42 }, 6: { cellWidth: 34 }, 7: { cellWidth: 151 },
+      8: { cellWidth: 68 }, 9: { cellWidth: 46 }, 10: { cellWidth: 46 }, 11: { cellWidth: 46 },
+      12: { cellWidth: 46 }, 13: { cellWidth: 61 },
+    },
+  });
+
+  return doc;
+}
+
+// ---------------------------------------------------------------
+// Generación de la Nota VE de Reconfirmación (Exclusiva para pendientes)
+// ---------------------------------------------------------------
+function cuilToDni(cuil) {
+  if (!cuil) return '';
+  const digits = String(cuil).replace(/\D/g, '');
+  let dniStr = '';
+  if (digits.length === 11) {
+    dniStr = digits.substring(2, 10);
+    if (dniStr.startsWith('0')) dniStr = dniStr.substring(1);
+  } else if (digits.length >= 7 && digits.length <= 8) {
+    dniStr = digits;
+  } else {
+    return cuil;
+  }
+  return dniStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function formatearFechaTextoOficial(fechaStr) {
+  let dia, mesIdx, anio;
+  if (fechaStr) {
+    const s = String(fechaStr).trim();
+    const delim = s.includes('/') ? '/' : (s.includes('-') ? '-' : null);
+    if (delim) {
+      const parts = s.split(delim);
+      if (parts.length >= 3) {
+        if (parts[0].length === 4) {
+          anio = parseInt(parts[0], 10);
+          mesIdx = parseInt(parts[1], 10) - 1;
+          dia = parseInt(parts[2], 10);
+        } else {
+          dia = parseInt(parts[0], 10);
+          mesIdx = parseInt(parts[1], 10) - 1;
+          anio = parseInt(parts[2], 10);
+        }
+      }
+    }
+  }
+  if (!dia || isNaN(dia) || isNaN(mesIdx)) {
+    const now = new Date();
+    dia = now.getDate();
+    mesIdx = now.getMonth();
+    anio = now.getFullYear();
+  }
+  const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+  const mesNombre = meses[mesIdx] || 'ENERO';
+  return `VIEDMA, ${dia} DE ${mesNombre} DEL ${anio}`;
+}
+
+function formatDateDDMMAAAA(val) {
+  if (!val) return '';
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return '';
+    var d = String(val.getDate()).padStart(2, '0');
+    var m = String(val.getMonth() + 1).padStart(2, '0');
+    var y = val.getFullYear();
+    return d + '/' + m + '/' + y;
+  }
+  var s = String(val).trim();
+  if (!s || s === '-' || s.toLowerCase() === 'invalid date') return '';
+  if (s.indexOf('T') !== -1) s = s.split('T')[0].trim();
+  else if (s.indexOf(' ') !== -1) {
+    var dt = new Date(s);
+    if (!isNaN(dt.getTime()) && s.length > 15 && isNaN(s.split(' ')[0])) {
+      var d = String(dt.getDate()).padStart(2, '0');
+      var m = String(dt.getMonth() + 1).padStart(2, '0');
+      var y = dt.getFullYear();
+      return d + '/' + m + '/' + y;
+    }
+    s = s.split(' ')[0].trim();
+  }
+  var mIso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (mIso) return mIso[3].padStart(2, '0') + '/' + mIso[2].padStart(2, '0') + '/' + mIso[1];
+  var mAr = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (mAr) return mAr[1].padStart(2, '0') + '/' + mAr[2].padStart(2, '0') + '/' + mAr[3];
+  return s;
+}
+
+function sumarDiasFecha(fechaStr, dias) {
+  if (!fechaStr) return '';
+  var d, m, y;
+  var s = String(fechaStr).trim();
+  if (s.indexOf('T') !== -1) s = s.split('T')[0];
+  if (s.indexOf(' ') !== -1 && !isNaN(s.split(' ')[0].charAt(0))) s = s.split(' ')[0];
+  var mIso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  var mAr = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (mIso) {
+    y = parseInt(mIso[1], 10);
+    m = parseInt(mIso[2], 10) - 1;
+    d = parseInt(mIso[3], 10);
+  } else if (mAr) {
+    d = parseInt(mAr[1], 10);
+    m = parseInt(mAr[2], 10) - 1;
+    y = parseInt(mAr[3], 10);
+  } else {
+    var dt = new Date(s);
+    if (!isNaN(dt.getTime())) {
+      y = dt.getFullYear();
+      m = dt.getMonth();
+      d = dt.getDate();
+    } else {
+      return '';
+    }
+  }
+  var resDate = new Date(y, m, d);
+  resDate.setDate(resDate.getDate() + (dias || 30));
+  var resD = String(resDate.getDate()).padStart(2, '0');
+  var resM = String(resDate.getMonth() + 1).padStart(2, '0');
+  var resY = resDate.getFullYear();
+  return resD + '-' + resM + '-' + resY;
+}
+
+// ---------------------------------------------------------------
+// Generación oficial de la Nota VE de Reconfirmación (Modelo Oficial)
+// ---------------------------------------------------------------
+function buildPdfReconfirmacion(est, meta, fechaEmisionParam) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'portrait' });
+  const metaObj = meta || {};
+  const fechaEmision = formatDateDDMMAAAA(fechaEmisionParam || metaObj.fechaEmision || est.fechaEmision || (document.getElementById('fechaCom')?.value ? formatearFechaISO(document.getElementById('fechaCom').value) : new Date()));
+
+  const marginL = 48, marginR = 48;
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const usableWidth = pageWidth - marginL - marginR;
+  let y = 30;
+
+  // Logo Horizonte Seguros (proporción oficial 800x248)
+  const logoW = 145, logoH = logoW * (248 / 800);
+  doc.addImage(LOGO_B64, 'PNG', marginL, y, logoW, logoH);
+
+  // Fecha y lugar eliminados de hoja 1 por solicitud
+
+  y += logoH + 18;
+
+  // Bloque Empleador / Contrato / Establecimiento
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+  const nombreEmpleador = String(metaObj.empleador || est.nombreContrato || est.organismo || '').trim();
+  doc.text(`EMPLEADOR: ${nombreEmpleador.toUpperCase()}`, marginL, y); y += 14;
+
+  const cuitVal = metaObj.cuit || est.cuitContrato || '';
+  if (cuitVal) {
+    doc.text(`CUIT: ${cuitVal}`, marginL, y); y += 14;
+  }
+
+  const contratoVal = metaObj.contrato || est.contrato || '';
+  const polizaVal = metaObj.poliza || est.poliza || '';
+  let contratoLinea = '';
+  if (contratoVal) {
+    contratoLinea = `CONTRATO: ${contratoVal}`;
+    if (polizaVal) contratoLinea += ` - Póliza Digital: ${polizaVal}`;
+  } else if (cuitVal) {
+    contratoLinea = `CONTRATO / CUIT: ${cuitVal}`;
+  }
+  if (contratoLinea) {
+    doc.text(contratoLinea, marginL, y); y += 14;
+  }
+
+  let estabTexto = `ESTABLECIMIENTO: ${String(est.nombre || '').trim().toUpperCase()}`;
+  const dirLocPartes = [metaObj.direccion || est.direccion, metaObj.localidad || est.localidad].filter(Boolean).map(s => String(s).trim().toUpperCase());
+  if (dirLocPartes.length > 0) {
+    estabTexto += ` - ${dirLocPartes.join(' - ')}`;
+  }
+  const estabLines = doc.splitTextToSize(estabTexto, usableWidth);
+  doc.text(estabLines, marginL, y);
+  y += estabLines.length * 12 + 6;
+
+  // Línea separadora
+  doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.75);
+  doc.line(marginL, y, marginL + usableWidth, y);
+  y += 16;
+
+  // Ref. Solicitud de Estudios Re-Confirmatorios
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(15, 107, 82);
+  doc.text('Ref. Solicitud de Estudios Re-Confirmatorios', marginL, y);
+  doc.setTextColor(0, 0, 0);
+  y += 18;
+
+  // Párrafos de la Nota VE
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+  const textoPersonalizado = (metaObj.textoPersonalizado && String(metaObj.textoPersonalizado).trim() && !metaObj.textoPersonalizado.includes('[Datos del prestador]')) ? String(metaObj.textoPersonalizado).trim() : null;
+
+  if (textoPersonalizado) {
+    const parrafos = textoPersonalizado.split(/\r?\n\r?\n/);
+    parrafos.forEach(function(par) {
+      const pClean = par.trim();
+      if (pClean) {
+        const lines = doc.splitTextToSize(pClean, usableWidth);
+        doc.text(lines, marginL, y);
+        y += (lines.length - 1) * doc.getLineHeight() + 16;
+      }
+    });
+    y += 4;
+  } else {
+    // Párrafo 1 (dividido en bloques para cálculo exacto de espaciado)
+    const p1_part1 = 'Le informamos que como resultado de la realización de los exámenes periódicos se han detectado los desvios en los estudios que se listan a continuacion. Para dichos empleados es necesario realizar exámenes complementarios, con el fin de conocer su estado de Salud.';
+    const linesP1_1 = doc.splitTextToSize(p1_part1, usableWidth);
+    doc.text(linesP1_1, marginL, y);
+    y += (linesP1_1.length - 1) * doc.getLineHeight() + 16;
+
+    const p1_part2 = 'A tal efecto solicitamos tenga a bien comunicarse con el prestador designado para coordinar los turnos en que concurrirán los empleados.';
+    const linesP1_2 = doc.splitTextToSize(p1_part2, usableWidth);
+    doc.text(linesP1_2, marginL, y);
+
+    // Espaciado uniforme antes y después del cuadro del prestador
+    const gapPrestador = 16;
+    const lastLineBaselineP1 = y + (linesP1_2.length - 1) * doc.getLineHeight();
+    const boxY = Math.round(lastLineBaselineP1 + 2 + gapPrestador);
+
+    // Cuadro [Datos del prestador]
+    const prestadorTxt = String(metaObj.prestador || '').trim() || 'A designar';
+    const domTxt = String(metaObj.domicilio || '').trim();
+    const telTxt = String(metaObj.telefono || '').trim();
+
+    const boxX = marginL;
+    const boxW = usableWidth;
+    const boxPadding = 10;
+    let pLines = ['PRESTADOR DESIGNADO: ' + prestadorTxt.toUpperCase()];
+    if (domTxt) pLines.push('DOMICILIO: ' + domTxt);
+    if (telTxt) pLines.push('TELÉFONO / CONTACTO: ' + telTxt);
+
+    const boxH = pLines.length * 14 + 14;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(203, 213, 225);
+    doc.roundedRect(boxX, boxY, boxW, boxH, 4, 4, 'FD');
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(15, 107, 82);
+    doc.text(pLines[0], boxX + boxPadding, boxY + 16);
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 40, 40);
+    for (let li = 1; li < pLines.length; li++) {
+      doc.text(pLines[li], boxX + boxPadding, boxY + 16 + li * 14);
+    }
+    doc.setTextColor(0, 0, 0);
+
+    // Espaciado inferior idéntico al superior
+    y = Math.round(boxY + boxH + gapPrestador + 7);
+
+    // Párrafo 2
+    const p2 = 'Consideramos oportuno solicitarle que tenga a bien comunicar fehacientemente a los empleados a quienes se les debe realizar el examen Reconfirmatorio, la ubicación del prestador y los turnos. Solicitamos también a Usted, tome las medidas necesarias para facilitar la concurrencia en las fechas acordadas con el prestador médico. Le recordamos que la realización de estos exámenes es de suma importancia para la detección precoz de una posible enfermedad profesional.';
+    const linesP2 = doc.splitTextToSize(p2, usableWidth);
+    doc.text(linesP2, marginL, y);
+    y += (linesP2.length - 1) * doc.getLineHeight() + 16;
+
+    // Párrafo de consultas y reclamos
+    const pContact = 'Para realizar consultas o reclamos por la presente citación comunicarse con 299 599-0713 (laprovidencia.cs@gmail.com) o al e-mail: amilano@horizonte.com.ar / nerxilape@horizonte.com.ar / xsitanor@horizonte.com.ar';
+    const linesPContact = doc.splitTextToSize(pContact, usableWidth);
+    doc.text(linesPContact, marginL, y);
+    y += linesPContact.length * 12 + 12;
+
+    // Cordialmente
+    doc.setFont('helvetica', 'bold');
+    doc.text('Cordialmente', marginL, y);
+    y += 14;
+
+    // Sello y firma digital
+    const selloW = 120, selloH = selloW * (268 / 328);
+    if (y + selloH > pageHeight - 20) {
+      y = pageHeight - selloH - 25;
+    }
+    doc.addImage(SELLO_B64, 'JPEG', marginL, y, selloW, selloH);
+  }
+
+  // ===============================================================
+  // PÁGINA 2: HOJA APARTE EN FORMATO LEGAL HORIZONTAL (LANDSCAPE)
+  // ===============================================================
+  doc.addPage('legal', 'landscape');
+  const legalW = doc.internal.pageSize.getWidth();
+  const legalH = doc.internal.pageSize.getHeight();
+  const legMargin = 40;
+  const legUsableW = legalW - (legMargin * 2);
+
+  let legY = 32;
+
+  // Encabezado de la página de tabla anexo
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(15, 107, 82);
+  doc.text('ANEXO - DETALLE DE EMPLEADOS CON DESVÍOS Y ESTUDIOS A RECONFIRMAR', legMargin, legY);
+  legY += 16;
+
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(70, 70, 70);
+  const subEncabezado = 'ESTABLECIMIENTO: ' + String(est.nombre || '').toUpperCase() + 
+    (est.codigoSrt ? ' (SRT: ' + est.codigoSrt + ')' : '') + 
+    '  |  EMPLEADOR: ' + nombreEmpleador.toUpperCase() + 
+    '  |  FECHA EMISIÓN VE: ' + fechaEmision;
+  doc.text(subEncabezado, legMargin, legY);
+  doc.setTextColor(0, 0, 0);
+  legY += 14;
+
+  // Línea divisoria
+  doc.setDrawColor(15, 107, 82); doc.setLineWidth(1);
+  doc.line(legMargin, legY, legMargin + legUsableW, legY);
+  legY += 12;
+
+  // Tabla de 5 columnas
+  const tableHead = [
+    ['Apellido y Nombre', 'DNI', 'Estudio a Reconfirmar', 'Estudios a realizar', 'Plazo máximo']
+  ];
+
+  const plazoMaximoFmt = sumarDiasFecha(fechaEmision, 30);
+
+  const filasSource = (metaObj.empleados && metaObj.empleados.length > 0) ? metaObj.empleados : ((est && est.filas && est.filas.length > 0) ? est.filas : (metaObj.filas || []));
+  const defaultEstRealizar = metaObj.estudiosAdicionales || 'A coordinar con prestador';
+
+  const tableBody = filasSource.map(function(f) {
+    const dniFormateado = cuilToDni(f.cuil || f.dni);
+    const estReconf = f.estudioOriginal || f.examen || (f.estudiosReconf && f.estudiosReconf.length > 0 ? f.estudiosReconf.map(function(s){ return s.estudio; }).join(', ') : 'EXAMEN PERIÓDICO');
+    const estRealizar = f.estudiosAdicionales || (Array.isArray(f.estudiosAdicionalesArr) ? f.estudiosAdicionalesArr.join(', ') : '') || defaultEstRealizar;
+    return [
+      String(f.nombre || f.empleado || '').toUpperCase(),
+      dniFormateado,
+      estReconf,
+      estRealizar,
+      plazoMaximoFmt
+    ];
+  });
+
+  doc.autoTable({
+    startY: legY,
+    margin: { left: legMargin, right: legMargin },
+    head: tableHead,
+    body: tableBody,
+    styles: {
+      fontSize: 8,
+      cellPadding: 5,
+      valign: 'middle',
+      lineColor: [200, 200, 200],
+      lineWidth: 0.5,
+      textColor: 30
+    },
+    headStyles: {
+      fillColor: [15, 107, 82],
+      textColor: 255,
+      fontSize: 8.5,
+      fontStyle: 'bold',
+      halign: 'center'
+    },
+    columnStyles: {
+      0: { halign: 'left', cellWidth: 220 },
+      1: { halign: 'center', cellWidth: 88 },
+      2: { halign: 'left', cellWidth: 260 },
+      3: { halign: 'left', cellWidth: 260 },
+      4: { halign: 'center', cellWidth: 100 }
+    },
+    theme: 'grid'
+  });
+
+  return doc;
+}
+
+function cap(s) {
+  if (!s) return '—';
+  return String(s).toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// [2026-09-06] Normalizar enlaces de Drive
+function _formatearLinkDrive_(url) {
+  if (!url) return '';
+  const str = String(url).trim();
+  const match = str.match(new RegExp('/d/([-\\w]{25,})'));
+  if (match && match[1]) {
+    return 'https://drive.google.com/file/d/' + match[1] + '/view';
+  }
+  return str;
+}
+
+function toast(msg, tipo = 'warning', dur = 4000) {
+  const c  = document.getElementById('toastCom');
+  const el = document.createElement('div');
+  el.className   = `toast-item toast-${tipo}`;
+  el.textContent = msg;
+  c.appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, dur);
+}
+
+function badgeCls(res) {
+  const str = String(res || '').trim();
+  if (str === 'Desvío')                    return 'res-desvio';
+  if (str === 'Pendiente de Confirmación') return 'res-pendiente';
+  if (str === 'Enfermedad Profesional')    return 'res-enf';
+  if (str.includes('Retenido'))            return 'res-retenido';
+  if (str === 'Normal (c/ Desistido)' || str === 'Desistido' || str === 'Desistido Total') return 'res-desistido';
+  return 'res-normal';
+}
+
+let _loadDone = false;
+
+function limpiarCacheUI(btn) {
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Limpiando...';
+  }
+  google.script.run
+    .withSuccessHandler(res => {
+      toast(res.msg || 'Memoria y caché liberados.', 'success');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-trash3"></i> Limpiar Memoria';
+      }
+      setTimeout(() => location.reload(), 600);
+    })
+    .withFailureHandler(err => {
+      toast('Error al limpiar caché: ' + (err.message || err), 'error');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-trash3"></i> Limpiar Memoria';
+      }
+    })
+    .limpiarMemoria();
+}
+
+function cargarDatos() {
+  _loadDone = false;
+  const overlay = document.getElementById('overlay');
+  if (overlay) {
+    overlay.style.display = 'flex';
+    overlay.innerHTML = '<div class="spinner"></div><p>Cargando registros comunicables por empleado...</p>';
+  }
+
+  const timeoutFailId = setTimeout(() => {
+    if (!_loadDone) {
+      if (overlay) overlay.style.display = 'none';
+      const dash = document.getElementById('dashBody');
+      if (dash) dash.style.display = 'block';
+      toast('Demora al responder. Mostrando datos disponibles o sincronizar.', 'warning');
+      filtrarVista();
+    }
+  }, 6000);
+
+  google.script.run
+    .withSuccessHandler(data => {
+      _loadDone = true;
+      clearTimeout(timeoutFailId);
+      if (data && data.error) {
+        if (overlay) {
+          overlay.innerHTML =
+            `<div style="color:var(--red); padding:30px; text-align:center; max-width:500px;">
+              <i class="bi bi-exclamation-triangle" style="font-size:2.5rem; display:block; margin-bottom:12px;"></i>
+              <div style="font-weight:700; font-size:1rem; margin-bottom:8px;">Error al cargar</div>
+              <p style="font-size:0.75rem; color:var(--muted); margin-bottom:16px;">${data.error}</p>
+              <button class="btn-head" onclick="sincronizarConMadre(this)" style="background:var(--blue); color:#fff; font-weight:700; border:none; margin-right:8px;">
+                <i class="bi bi-arrow-repeat"></i> Sincronizar desde Empleados
+              </button>
+              <button class="btn-head" onclick="limpiarCacheUI(this)">
+                <i class="bi bi-trash3"></i> Limpiar Memoria
+              </button>
+            </div>`;
+        }
+        return;
+      }
+      _allData = Array.isArray(data) ? data : [];
+
+      // Cargar prestadores para reconfirmaciones desde hoja prestador_reco
+      google.script.run
+        .withSuccessHandler(res => {
+          _prestadoresReco = Array.isArray(res) ? res : [];
+        })
+        .obtenerPrestadoresReconfirmacion();
+
+      // Llenar selector de organismos
+      const orgs = [...new Set(_allData.map(r => r.organismo).filter(Boolean))].sort();
+      const selOrg = document.getElementById('selOrg');
+      if (selOrg) {
+        selOrg.innerHTML = '<option value="">Todos los organismos</option>';
+        orgs.forEach(o => selOrg.innerHTML += `<option value="${o}">${cap(o)}</option>`);
+      }
+
+      // Llenar selector de prestadores
+      const prestadores = [...new Set(_allData.map(r => r.prestador).filter(Boolean))].sort();
+      const selPrest = document.getElementById('selPrestador');
+      if (selPrest) {
+        selPrest.innerHTML = '<option value="">Todos los prestadores</option>';
+        prestadores.forEach(p => selPrest.innerHTML += `<option value="${p}">${cap(p)}</option>`);
+      }
+
+      if (overlay) overlay.style.display = 'none';
+      const dashBody = document.getElementById('dashBody');
+      if (dashBody) dashBody.style.display = 'block';
+      filtrarVista();
+    })
+    .withFailureHandler(err => {
+      _loadDone = true;
+      clearTimeout(timeoutFailId);
+      if (overlay) {
+        overlay.innerHTML =
+          `<div style="color:var(--red); padding:30px; text-align:center; max-width:500px;">
+            <i class="bi bi-exclamation-triangle" style="font-size:2.5rem; display:block; margin-bottom:12px;"></i>
+            <div style="font-weight:700; font-size:1rem; margin-bottom:8px;">Error de conexión</div>
+            <p style="font-size:0.75rem; color:var(--muted); margin-bottom:16px;">${err.message || err}</p>
+            <button class="btn-head" onclick="location.reload()" style="background:var(--surface2); color:#fff; border-color:var(--border); margin-right:8px;">
+              <i class="bi bi-arrow-clockwise"></i> Reintentar
+            </button>
+            <button class="btn-head" onclick="sincronizarConMadre(this)" style="background:var(--blue); color:#fff; font-weight:700; border:none; margin-right:8px;">
+              <i class="bi bi-arrow-repeat"></i> Sincronizar desde Empleados
+            </button>
+            <button class="btn-head" onclick="limpiarCacheUI(this)">
+              <i class="bi bi-trash3"></i> Limpiar Memoria
+            </button>
+          </div>`;
+      }
+    })
+    .obtenerRegistrosComunicables();
+}
+
+window.onload = () => {
+  const hoy = new Date();
+  const elFecha = document.getElementById('fechaCom');
+  if (elFecha) {
+    elFecha.value = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-${String(hoy.getDate()).padStart(2,'0')}`;
+  }
+  cargarDatos();
+};
+
+function sincronizarConMadre(btn) {
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Acumulando...';
+  }
+  const overlay = document.getElementById('overlay');
+  if (overlay) {
+    overlay.style.display = 'flex';
+    overlay.innerHTML = '<div class="spinner"></div><p>Acumulando y sincronizando registros en la hoja independiente Comunicaciones...</p>';
+  }
+  google.script.run
+    .withSuccessHandler(res => {
+      if (overlay) overlay.style.display = 'none';
+      const cant = (res && res.comunicaciones !== undefined) ? res.comunicaciones : 0;
+      toast(`✓ Hoja Comunicaciones acumulada con éxito (${cant} empleados)`, 'success');
+      cargarDatos();
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Sincronizar Lotes';
+      }
+    })
+    .withFailureHandler(err => {
+      if (overlay) overlay.style.display = 'none';
+      toast('Error al sincronizar: ' + (err.message || err), 'error');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Sincronizar Lotes';
+      }
+    })
+    .sincronizarHojaComunicaciones();
+}
+
+// ── FILTROS ─────────────────────────────────────────────
+function filtrarVista() {
+  const fCuil   = (document.getElementById('filtroCuil') ? document.getElementById('filtroCuil').value : '').toLowerCase().trim();
+  const fNom    = (document.getElementById('filtroNombre') ? document.getElementById('filtroNombre').value : '').toLowerCase().trim();
+  const fContr  = (document.getElementById('filtroContrato') ? document.getElementById('filtroContrato').value : '').toLowerCase().trim();
+  const fEstab  = (document.getElementById('filtroEstab') ? document.getElementById('filtroEstab').value : '').toLowerCase().trim();
+  const selCanalVal = (document.getElementById('selCanal') ? document.getElementById('selCanal').value : '');
+  const comEst  = document.getElementById('selEstadoCom').value;
+  const selPrestVal = (document.getElementById('selPrestador') ? document.getElementById('selPrestador').value : '');
+  const consEst = document.getElementById('selEstadoCons').value;
+  const org     = document.getElementById('selOrg').value;
+
+  const filtrados = _allData.filter(r => {
+    if (fCuil && !(r.cuil || '').toLowerCase().includes(fCuil)) return false;
+    if (fNom) {
+      const matchNom = (r.empleado || '').toLowerCase().includes(fNom) ||
+                       (r.estudios && r.estudios.some(e =>
+                         (e.estudio || '').toLowerCase().includes(fNom) ||
+                         (e.observacion || '').toLowerCase().includes(fNom)
+                       ));
+      if (!matchNom) return false;
+    }
+    if (fContr) {
+      const matchContr = (r.contrato || '').toLowerCase().includes(fContr) ||
+                         (r.nombreContrato || '').toLowerCase().includes(fContr) ||
+                         (r.srt || '').toLowerCase().includes(fContr) ||
+                         (r.frecuencia || '').toLowerCase().includes(fContr) ||
+                         (r.loteKey || '').toLowerCase().includes(fContr);
+      if (!matchContr) return false;
+    }
+    if (fEstab && !(r.establecimiento || '').toLowerCase().includes(fEstab)) return false;
+
+    // Filtro por Canal / Aptitud y Prioridad de Confirmación
+    const normEst = String(r.estadoConsolidado || '').toLowerCase();
+    const esPendConfirm = normEst.includes('pendiente de confirmaci');
+    if (selCanalVal === 'PENDIENTE_CONFIRMACION' && !esPendConfirm) return false;
+    if (selCanalVal === 'ALERTA_EMPLEADO' && r.canal !== 'ALERTA_EMPLEADO' && !esPendConfirm) return false;
+    if (selCanalVal === 'LOTE_EMPLEADOR_APTO' && (r.canal !== 'LOTE_EMPLEADOR' || r.aptoComunicar !== 'SÍ' || esPendConfirm)) return false;
+    if (selCanalVal === 'LOTE_EMPLEADOR_ESPERA' && (r.canal !== 'LOTE_EMPLEADOR' || r.aptoComunicar === 'SÍ')) return false;
+    if (selCanalVal === 'RETENIDO' && r.canal !== 'RETENIDO' && !normEst.includes('retenido')) return false;
+
+    if (comEst === 'pendientes' && r.comunicacion) return false;
+    if (comEst === 'comunicados' && !r.comunicacion) return false;
+    if (selPrestVal && r.prestador !== selPrestVal) return false;
+    if (consEst && r.estadoConsolidado !== consEst) return false;
+    if (org && r.organismo !== org) return false;
+
+    return true;
+  });
+
+  renderTabla(filtrados);
+}
+
+function limpiarFiltros() {
+  if (document.getElementById('filtroCuil')) document.getElementById('filtroCuil').value = '';
+  if (document.getElementById('filtroNombre')) document.getElementById('filtroNombre').value = '';
+  if (document.getElementById('filtroContrato')) document.getElementById('filtroContrato').value = '';
+  if (document.getElementById('filtroEstab')) document.getElementById('filtroEstab').value = '';
+  if (document.getElementById('selCanal')) document.getElementById('selCanal').value = '';
+  document.getElementById('selEstadoCom').value  = 'pendientes';
+  if (document.getElementById('selPrestador')) document.getElementById('selPrestador').value = '';
+  document.getElementById('selEstadoCons').value = '';
+  document.getElementById('selOrg').value        = '';
+  filtrarVista();
+}
+
+// ── RENDER TABLA (AGRUPADA POR LOTE / ESTABLECIMIENTO) ──
+function renderTabla(data) {
+  const body = document.getElementById('comBody');
+  body.innerHTML = '';
+
+  // Lotes con casos 'Pendiente de Confirmación': bloquean el lote completo para el empleador
+  const lotesConPendienteSet = new Set();
+  _allData.forEach(r => {
+    const norm = String(r.estadoConsolidado || '').toLowerCase();
+    if (norm.includes('pendiente de confirmaci') || (r.canal === 'ALERTA_EMPLEADO' && norm.includes('pendiente'))) {
+      const k = String(r.loteKey || `${r.contrato}___${r.srt}___${r.frecuencia}`).trim() +
+                '___' + String(r.establecimiento || 'SIN_ESTABLECIMIENTO').trim().toUpperCase();
+      lotesConPendienteSet.add(k);
+    }
+  });
+
+  // Contadores según la matriz de decisión y prioridad médica
+  const nAlertas = _allData.filter(r => (r.canal === 'ALERTA_EMPLEADO' || String(r.estadoConsolidado).toLowerCase().includes('pendiente de confirmaci')) && !r.comunicacion).length;
+  const nLotesAptos = _allData.filter(r => {
+    const k = String(r.loteKey || `${r.contrato}___${r.srt}___${r.frecuencia}`).trim() +
+              '___' + String(r.establecimiento || 'SIN_ESTABLECIMIENTO').trim().toUpperCase();
+    return r.canal === 'LOTE_EMPLEADOR' && r.aptoComunicar === 'SÍ' && !r.comunicacion && !lotesConPendienteSet.has(k);
+  }).length;
+  const nEspera = _allData.filter(r => {
+    const k = String(r.loteKey || `${r.contrato}___${r.srt}___${r.frecuencia}`).trim() +
+              '___' + String(r.establecimiento || 'SIN_ESTABLECIMIENTO').trim().toUpperCase();
+    return (r.aptoComunicar === 'NO' || r.canal === 'RETENIDO' || lotesConPendienteSet.has(k)) && !r.comunicacion;
+  }).length;
+  const nComun = _allData.filter(r => r.comunicacion).length;
+
+  document.getElementById('statAlertas').textContent   = nAlertas.toLocaleString('es-AR');
+  document.getElementById('statLotesAptos').textContent = nLotesAptos.toLocaleString('es-AR');
+  document.getElementById('statEspera').textContent    = nEspera.toLocaleString('es-AR');
+  document.getElementById('statComun').textContent     = nComun.toLocaleString('es-AR');
+
+  if (data.length === 0) {
+    body.innerHTML = `<tr><td colspan="12">
+      <div style="text-align:center; padding:50px 20px; color:var(--muted);">
+        <i class="bi bi-inbox" style="font-size:2.5rem; display:block; margin-bottom:12px; color:var(--blue);"></i>
+        <div style="font-size:1rem; font-weight:700; color:#fff; margin-bottom:6px;">No hay registros para mostrar</div>
+        <p style="font-size:0.75rem; max-width:440px; margin:0 auto 16px auto;">
+          La vista no contiene empleados con los filtros actuales o la hoja aún requiere sincronización desde Empleados.
+        </p>
+        <button class="btn-head" onclick="sincronizarConMadre(this)" style="background:var(--blue); color:#fff; font-weight:700; border:none; padding:7px 18px;">
+          <i class="bi bi-arrow-repeat"></i> Sincronizar desde Empleados
+        </button>
+      </div>
+    </td></tr>`;
+    document.getElementById('checkAll').checked = false;
+    actualizarContador();
+    return;
+  }
+
+  // Agrupamiento por Lote / Establecimiento
+  const mapaLotes = new Map();
+  data.forEach((r, idx) => {
+    // Clave de lote única asegurando agrupación por establecimiento y contrato
+    const key = String(r.loteKey || `${r.contrato}___${r.srt}___${r.frecuencia}`).trim() +
+                '___' + String(r.establecimiento || 'SIN_ESTABLECIMIENTO').trim().toUpperCase();
+
+    if (!mapaLotes.has(key)) {
+      mapaLotes.set(key, {
+        key: key,
+        contrato: r.contrato || '',
+        nombreContrato: r.nombreContrato || '',
+        srt: r.srt || '',
+        establecimiento: r.establecimiento || '',
+        organismo: r.organismo || '',
+        frecuencia: r.frecuencia || '',
+        prestadores: new Set(),
+        empleados: [],
+        totalEstudios: 0,
+        totalComunicados: 0,
+        totalPendientes: 0,
+        totalAptos: 0,
+        totalAlertas: 0,
+        totalPendientesConfirmacion: 0,
+        totalRetenidos: 0,
+        estadoLote: r.estadoLote || ''
+      });
+    }
+
+    const l = mapaLotes.get(key);
+    if (r.prestador) l.prestadores.add(r.prestador);
+    l.totalEstudios += (Number(r.totalEstudios) || (r.rowIndices || []).length || 0);
+    if (r.comunicacion) l.totalComunicados++;
+    else l.totalPendientes++;
+
+    const normEstado = String(r.estadoConsolidado || '').toLowerCase();
+    const esPendConfirm = normEstado.includes('pendiente de confirmaci');
+    if (esPendConfirm) {
+      l.totalPendientesConfirmacion++;
+    }
+
+    if (r.aptoComunicar === 'SÍ' && !esPendConfirm) l.totalAptos++;
+    if (r.canal === 'ALERTA_EMPLEADO' || esPendConfirm) l.totalAlertas++;
+    if (r.canal === 'RETENIDO' || normEstado.includes('retenido')) l.totalRetenidos++;
+
+    l.empleados.push({ r, dataIdx: idx });
+  });
+
+  _mapaLotesGlobal = mapaLotes;
+  const frag = document.createDocumentFragment();
+  let loteIdx = 0;
+
+  mapaLotes.forEach((lote, key) => {
+    loteIdx++;
+    const tienePendConfirm = lote.totalPendientesConfirmacion > 0;
+
+    // Verificar si todos o algunos de los empleados aptos están seleccionados (solo si el lote no está bloqueado por confirmación)
+    const aptosEnLote = tienePendConfirm ? [] : lote.empleados.filter(item => item.r.aptoComunicar === 'SÍ' || item.r.comunicacion);
+    const todosAptosChecked = aptosEnLote.length > 0 && aptosEnLote.every(item => _seleccionados.has(item.r.cuil));
+    const algunosAptosChecked = aptosEnLote.some(item => _seleccionados.has(item.r.cuil));
+
+    // Badge del lote según prioridad médica
+    let loteBadge = '';
+    if (tienePendConfirm) {
+      loteBadge = `<span class="badge-apto apto-bloq" style="background:rgba(239,68,68,.2); color:#fca5a5; border:1px solid rgba(239,68,68,.6); font-weight:800;" title="Prioridad de negocio: No se puede informar el lote completo hasta tanto no se realice la confirmación médica.">
+        <i class="bi bi-x-octagon-fill"></i> Bloqueado: ${lote.totalPendientesConfirmacion} Pendiente de Confirmación
+      </span>`;
+    } else if (lote.totalAlertas > 0) {
+      loteBadge = `<span class="badge-canal canal-alerta"><i class="bi bi-exclamation-triangle-fill"></i> Alerta Médica (${lote.totalAlertas})</span>`;
+    } else if (lote.totalPendientes === 0) {
+      loteBadge = `<span class="badge-apto apto-si"><i class="bi bi-check-all"></i> Lote Comunicado</span>`;
+    } else if (lote.totalAptos === lote.empleados.length) {
+      loteBadge = `<span class="badge-apto apto-si"><i class="bi bi-check-circle-fill"></i> Lote Cerrado (Apto)</span>`;
+    } else if (lote.totalRetenidos > 0) {
+      loteBadge = `<span class="badge-canal canal-retenido"><i class="bi bi-shield-x"></i> Retenido (${lote.totalRetenidos})</span>`;
+    } else {
+      loteBadge = `<span class="badge-apto apto-no"><i class="bi bi-hourglass-split"></i> En espera de cierre</span>`;
+    }
+
+    const prestadoresArr = Array.from(lote.prestadores);
+    const prestadoresStr = prestadoresArr.length > 0 ? prestadoresArr.map(p => cap(p)).join(', ') : '';
+
+    const isLoteChecked = _lotesSeleccionados.has(key) || (todosAptosChecked && aptosEnLote.length > 0);
+
+    // Fila cabecera del Lote / Establecimiento
+    const trLote = document.createElement('tr');
+    trLote.className = 'lote-header-row';
+    trLote.dataset.loteKey = key;
+
+    trLote.innerHTML = `
+      <td class="center">
+        <input type="checkbox" class="lote-check" data-lote="${key}"
+          ${isLoteChecked ? 'checked' : ''}
+          ${tienePendConfirm ? 'disabled title="Bloqueado por regla médica: no se puede informar el lote completo hasta realizar la confirmación pendiente."' : (aptosEnLote.length === 0 ? 'disabled title="Este lote no tiene empleados aptos para comunicar"' : '')}
+          onchange="toggleLote('${key}', this)" style="accent-color:var(--cyan);" title="Seleccionar lote / establecimiento para generar VE y comunicar">
+      </td>
+      <td class="center">
+        <button class="btn-expand" onclick="toggleColapsarLote('${key}', this)" title="Expandir/colapsar empleados de este establecimiento">
+          <i class="bi bi-chevron-right" id="lote_icon_${loteIdx}"></i>
+        </button>
+      </td>
+      <td colspan="10">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span style="font-weight:700; font-size:0.8rem; color:#fff; display:inline-flex; align-items:center; gap:6px;">
+              <i class="bi bi-building" style="color:var(--cyan);"></i> ${lote.establecimiento || 'Sin Establecimiento'}
+            </span>
+            <span style="font-size:0.7rem; color:#cbd5e1; background:rgba(255,255,255,0.05); padding:2px 7px; border-radius:5px; border:1px solid var(--border);">
+              CUIT: <b style="color:#fff;">${lote.contrato}</b> (${lote.nombreContrato || '—'})
+            </span>
+            <span style="font-size:0.68rem; color:var(--muted); background:rgba(255,255,255,0.05); padding:2px 7px; border-radius:5px; border:1px solid var(--border);">
+              SRT: <b style="color:#e2e8f0;">${lote.srt || '—'}</b> · Frec: <b style="color:#e2e8f0;">${lote.frecuencia || '—'}</b>
+            </span>
+            ${lote.organismo ? `<span style="font-size:0.65rem; color:var(--muted);"><i class="bi bi-diagram-3"></i> ${cap(lote.organismo)}</span>` : ''}
+            ${prestadoresStr ? `<span style="font-size:0.65rem; color:#93c5fd;"><i class="bi bi-hospital"></i> ${prestadoresStr}</span>` : ''}
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="badge-lote-info">
+              <i class="bi bi-people-fill"></i> <b>${lote.empleados.length}</b> emp. (${lote.totalEstudios} est.)
+            </span>
+            ${loteBadge}
+            <button class="btn-head" style="padding:2px 8px; font-size:0.65rem;" onclick="abrirCarpetaDrive('${lote.contrato}','${lote.nombreContrato || lote.contrato}','${lote.srt}','${lote.establecimiento}', this)" title="Abrir carpeta Drive del establecimiento">
+              <i class="bi bi-folder2-open" style="color:var(--amber);"></i> Drive
+            </button>
+            <button class="btn-head" style="padding:2px 8px; font-size:0.65rem; color:#38bdf8; border-color:rgba(56,189,248,0.4);" onclick="abrirModalVentanillas('${key}')" title="Ver Ventanillas Electrónicas emitidas y guardadas para este establecimiento">
+              <i class="bi bi-window-stack"></i> Ventanillas
+            </button>
+            ${tienePendConfirm ? `
+              <button class="btn-comunicar-lote" style="background:#b45309; border-color:#b45309; color:#fff;" onclick="generarNotaVEReconfirmacionLote('${key}')" title="Generar Nota VE exclusiva para los casos pendientes de reconfirmación de este establecimiento">
+                <i class="bi bi-file-earmark-medical-fill"></i> VE Reconfirmación (${lote.totalPendientesConfirmacion})
+              </button>
+              <a href="<?= url ?>?v=desvios" class="btn-head" style="padding:2px 9px; font-size:0.65rem; border-color:var(--amber); color:var(--amber); text-decoration:none;" title="Ir al módulo de Reconfirmaciones Médicas para resolver los casos pendientes">
+                <i class="bi bi-pencil-square"></i> Gestionar (${lote.totalPendientesConfirmacion})
+              </a>
+            ` : (lote.totalPendientes === 0 ? `
+              <button class="btn-head" style="padding:2px 9px; font-size:0.65rem; color:#34d399; border-color:#34d399;" onclick="reimprimirNotaVELote('${key}')" title="Reimprimir o descargar Nota VE oficial en PDF de este establecimiento">
+                <i class="bi bi-file-earmark-pdf"></i> Reimprimir VE
+              </button>
+            ` : (lote.totalAptos > 0 ? `
+              <button class="btn-comunicar-lote" onclick="generarNotaYComunicarLote('${key}')" title="Generar Nota VE en PDF y registrar comunicación del establecimiento">
+                <i class="bi bi-file-earmark-pdf-fill"></i> Nota VE y Comunicar (${lote.totalAptos})
+              </button>
+            ` : ''))}
+          </div>
+        </div>
+      </td>`;
+
+    frag.appendChild(trLote);
+
+    // Si tiene selección parcial, marcamos indeterminate en el checkbox
+    if (!todosAptosChecked && algunosAptosChecked && !tienePendConfirm) {
+      setTimeout(() => {
+        const lc = document.querySelector(`.lote-check[data-lote="${key}"]`);
+        if (lc) lc.indeterminate = true;
+      }, 0);
+    }
+
+    // Filas hijas (empleados del lote)
+    lote.empleados.forEach(item => {
+      const r = item.r;
+      const idx = item.dataIdx;
+      const normEstado = String(r.estadoConsolidado || '').toLowerCase();
+      const esPendiente = normEstado.includes('pendiente de confirmaci');
+      const bloqueadoPorLote = tienePendConfirm && r.canal === 'LOTE_EMPLEADOR';
+
+      const isChecked = _seleccionados.has(r.cuil);
+      const isApto = (r.aptoComunicar === 'SÍ' && !tienePendConfirm && !esPendiente);
+      const yaComun = Boolean(r.comunicacion);
+      const bloqueado = (esPendiente || bloqueadoPorLote || (!isApto && !yaComun));
+
+      let pastelCls = 'pastel-ausente';
+      if (normEstado.includes('normal')) pastelCls = 'pastel-normal';
+      else if (normEstado.includes('enfermedad profesional')) pastelCls = 'pastel-enf-prof';
+      else if (normEstado.includes('pendiente de confirmaci')) pastelCls = 'pastel-reconf';
+
+      const tr = document.createElement('tr');
+      tr.className = `emp-row emp-child ${pastelCls} ${isChecked ? 'row-selected' : ''}`;
+      tr.style.display = 'none'; /* Comprimido por defecto */
+      tr.dataset.cuil = r.cuil;
+      tr.dataset.lote = key;
+
+      // Badge Canal según prioridad médica
+      let canalBadge = '';
+      if (esPendiente) {
+        canalBadge = `<span class="badge-canal canal-alerta" style="border-color:var(--amber); color:#fbbf24; background:rgba(245,158,11,.15);"><i class="bi bi-hourglass-split"></i> Prioridad Confirmación</span>
+                      <div style="font-size:0.6rem; color:#fcd34d; margin-top:2px;">Pendiente de reconfirmación</div>`;
+      } else if (r.canal === 'ALERTA_EMPLEADO') {
+        canalBadge = `<span class="badge-canal canal-alerta"><i class="bi bi-exclamation-triangle-fill"></i> Alerta Médica</span>
+                      <div style="font-size:0.6rem; color:#fca5a5; margin-top:2px;">Empleado puntual (Inmediato)</div>`;
+      } else if (r.canal === 'RETENIDO') {
+        canalBadge = `<span class="badge-canal canal-retenido"><i class="bi bi-shield-x"></i> Retenido</span>
+                      <div style="font-size:0.6rem; color:#fcd34d; margin-top:2px;">No informar (Gestión interna)</div>`;
+      } else {
+        canalBadge = `<span class="badge-canal canal-empleador"><i class="bi bi-building"></i> Lote Empleador</span>
+                      <div style="font-size:0.6rem; color:var(--muted); margin-top:2px;">Empleador (Cierre de lote)</div>`;
+      }
+
+      // Badge Aptitud / Estado Lote
+      let aptoBadge = '';
+      if (yaComun) {
+        aptoBadge = `<span class="badge-apto apto-si"><i class="bi bi-check-all"></i> Ya Comunicado</span>`;
+      } else if (esPendiente) {
+        aptoBadge = `<span class="badge-apto apto-bloq" style="background:rgba(245,158,11,.18); color:#fbbf24; border-color:rgba(245,158,11,.4);" title="Tiene prioridad el resultado pendiente de confirmación. No se emite hasta confirmar."><i class="bi bi-slash-circle"></i> Bloquea Lote (Confirmar)</span>`;
+      } else if (bloqueadoPorLote) {
+        aptoBadge = `<span class="badge-apto apto-bloq" title="Lote en pausa: el establecimiento tiene estudios pendientes de confirmación médica"><i class="bi bi-pause-circle"></i> Pausado por Confirmación</span>`;
+      } else if (isApto) {
+        aptoBadge = `<span class="badge-apto apto-si"><i class="bi bi-check-circle-fill"></i> ${r.estadoLote || 'Apto para comunicar'}</span>`;
+      } else if (r.estadoLote && r.estadoLote.includes('Bloqueado')) {
+        aptoBadge = `<span class="badge-apto apto-bloq"><i class="bi bi-x-octagon-fill"></i> ${r.estadoLote}</span>`;
+      } else {
+        aptoBadge = `<span class="badge-apto apto-no"><i class="bi bi-hourglass-split"></i> ${r.estadoLote || 'En espera de cierre'}</span>`;
+      }
+
+      tr.innerHTML = `
+        <td class="center">
+          <input type="checkbox" class="emp-check" value="${r.cuil}" data-lote="${key}"
+            data-indices="${(r.rowIndices || []).join(',')}"
+            ${isChecked ? 'checked' : ''}
+            ${bloqueado ? `disabled title="${esPendiente ? 'Caso pendiente de confirmación: debe reconfirmarse antes de emitir' : (bloqueadoPorLote ? 'Bloqueado: el establecimiento tiene estudios pendientes de confirmación' : 'Bloqueado por matriz')}"` : ''}
+            onchange="onEmpCheck(this)" style="accent-color:var(--blue);">
+        </td>
+        <td class="center">
+          <button class="btn-expand" onclick="toggleDetalles('${r.cuil}', this)" title="Ver todos los estudios de ${r.empleado}">
+            <i class="bi bi-chevron-right" id="icon_${r.cuil}"></i>
+          </button>
+        </td>
+        <td class="col-child-indent" style="font-weight:600; font-size:.7rem;">
+          <span style="color:var(--muted); font-size:0.6rem; margin-right:4px;">↳</span>${r.cuil || '-'}
+        </td>
+        <td>
+          <div style="font-weight:600;">${r.empleado || '-'}</div>
+          <div style="font-size:0.62rem; color:var(--muted);">${cap(r.organismo)}</div>
+        </td>
+        <td>
+          <div style="font-weight:600; font-size:0.7rem; color:#93c5fd;">${r.prestador ? cap(r.prestador) : '—'}</div>
+        </td>
+        <td>
+          <div><span style="font-weight:700; color:#fff;">CUIT:</span> <span style="font-size:0.72rem;">${r.contrato || '-'}</span></div>
+          <div style="font-size:0.65rem; color:var(--muted);">
+            SRT: <b style="color:#e2e8f0;">${r.srt || '-'}</b> · Frec: <b style="color:#e2e8f0;">${r.frecuencia || '—'}</b>
+          </div>
+          <div style="font-size:0.60rem; color:var(--muted);">${cap(r.nombreContrato || r.establecimiento)}</div>
+        </td>
+        <td>${canalBadge}</td>
+        <td>${aptoBadge}</td>
+        <td><span class="badge-res ${badgeCls(r.estadoConsolidado)}">${r.estadoConsolidado}</span></td>
+        <td class="center">
+          <span style="background:var(--surface2); border:1px solid var(--border); padding:2px 6px; border-radius:4px; font-weight:700; font-size:0.65rem;">
+            ${r.totalEstudios} est.
+          </span>
+        </td>
+        <td class="center" style="color:var(--muted); font-size:.68rem;">${r.fechaAuditoria || '-'}</td>
+        <td class="center">
+          <div style="display:flex; flex-direction:column; gap:3px; align-items:center;">
+            ${r.fechaVEReconf ? `<span class="badge-ve-reco" title="Notificado formalmente en Nota VE de Reconfirmación"><i class="bi bi-file-earmark-medical"></i> VE Reconf: ${r.fechaVEReconf}</span>` : ''}
+            ${(r.fechaComunicacionLote || (r.comunicacion && !r.fechaVEReconf))
+              ? `<span class="badge-ve-total" title="Notificado formalmente en Nota VE Total de Resultados"><i class="bi bi-file-earmark-check"></i> VE Total: ${r.fechaComunicacionLote || r.comunicacion}</span>`
+              : (!r.fechaVEReconf ? `<span style="color:var(--muted); font-size:0.62rem; font-weight:600;"><i class="bi bi-dash-circle"></i> Sin VE emitida</span>` : '')}
+          </div>
+        </td>`;
+      frag.appendChild(tr);
+
+      // Fila oculta de detalles (Acordeón de estudios bajo demanda)
+      const trDet = document.createElement('tr');
+      trDet.id = `details_${r.cuil}`;
+      trDet.className = 'details-row';
+      trDet.dataset.lote = key;
+      trDet.style.display = 'none';
+
+      trDet.innerHTML = `
+        <td colspan="12">
+          <div style="font-size:0.6rem; font-weight:700; color:var(--blue); text-transform:uppercase; margin-bottom:6px; letter-spacing:0.5px;">
+            <i class="bi bi-card-checklist"></i> Detalle de todos los estudios del empleado (${r.empleado})
+          </div>
+          <table class="nested-table">
+            <thead>
+              <tr>
+                <th style="width:22%;">Estudio</th>
+                <th style="width:14%;">Prestador</th>
+                <th style="width:14%;">Resultado Individual</th>
+                <th style="width:25%;">Observación Médica</th>
+                <th style="width:8%;">F. Estudio</th>
+                <th style="width:8%;">F. Auditoría</th>
+                <th style="width:4%; text-align:center;">Adj.</th>
+                <th style="width:5%; text-align:center;">Comunicación</th>
+              </tr>
+            </thead>
+            <tbody id="tbody_det_${r.cuil}">
+              <tr><td colspan="8" style="text-align:center; padding:12px; color:var(--muted);"><span class="spinner-border spinner-border-sm"></span> Cargando estudios...</td></tr>
+            </tbody>
+          </table>
+        </td>`;
+      frag.appendChild(trDet);
+    });
+  });
+
+  body.appendChild(frag);
+
+  // Sincronizar checkAll con el estado actual de los visibles habilitados
+  actualizarCheckAll();
+  actualizarContador();
+}
+
+// ── SELECCIÓN Y COLAPSO DE LOTES ─────────────────────────
+function toggleColapsarLote(key, btn) {
+  const rows = document.querySelectorAll(`tr.emp-child[data-lote="${key}"]`);
+  const details = document.querySelectorAll(`tr.details-row[data-lote="${key}"]`);
+  const icon = btn ? btn.querySelector('i') : null;
+  const estaVisible = Array.from(rows).some(r => r.style.display !== 'none');
+
+  rows.forEach(r => r.style.display = estaVisible ? 'none' : 'table-row');
+  if (estaVisible) {
+    details.forEach(d => d.style.display = 'none');
+  }
+  if (icon) {
+    icon.className = estaVisible ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
+  }
+}
+
+function toggleTodosLosLotes(expandir) {
+  const childRows = document.querySelectorAll('tr.emp-child');
+  childRows.forEach(r => r.style.display = expandir ? 'table-row' : 'none');
+  if (!expandir) {
+    document.querySelectorAll('tr.details-row').forEach(d => d.style.display = 'none');
+  }
+  document.querySelectorAll('tr.lote-header-row .btn-expand i').forEach(icon => {
+    icon.className = expandir ? 'bi bi-chevron-down' : 'bi bi-chevron-right';
+  });
+}
+
+function toggleLote(key, chk) {
+  if (chk.checked) {
+    _lotesSeleccionados.add(key);
+  } else {
+    _lotesSeleccionados.delete(key);
+  }
+
+  const empChecks = document.querySelectorAll(`.emp-check[data-lote="${key}"]:not(:disabled)`);
+  empChecks.forEach(c => {
+    c.checked = chk.checked;
+    c.closest('tr.emp-row')?.classList.toggle('row-selected', chk.checked);
+    if (chk.checked) {
+      _seleccionados.add(c.value);
+    } else {
+      _seleccionados.delete(c.value);
+    }
+  });
+  actualizarCheckAll();
+  actualizarContador();
+}
+
+function comunicarLoteDirecto(key) {
+  generarNotaYComunicarLote(key);
+}
+
+function toggleTodos(chk) {
+  const enabledChecks = document.querySelectorAll('.emp-check:not(:disabled)');
+  enabledChecks.forEach(c => {
+    c.checked = chk.checked;
+    c.closest('tr.emp-row')?.classList.toggle('row-selected', chk.checked);
+    if (chk.checked) {
+      _seleccionados.add(c.value);
+    } else {
+      _seleccionados.delete(c.value);
+    }
+  });
+
+  document.querySelectorAll('.lote-check:not(:disabled)').forEach(lc => {
+    lc.checked = chk.checked;
+    lc.indeterminate = false;
+    const lk = lc.dataset.lote;
+    if (lk) {
+      if (chk.checked) _lotesSeleccionados.add(lk);
+      else _lotesSeleccionados.delete(lk);
+    }
+  });
+
+  if (!chk.checked) _lotesSeleccionados.clear();
+
+  actualizarContador();
+}
+
+function onEmpCheck(chk) {
+  chk.closest('tr.emp-row')?.classList.toggle('row-selected', chk.checked);
+  if (chk.checked) {
+    _seleccionados.add(chk.value);
+  } else {
+    _seleccionados.delete(chk.value);
+  }
+
+  // Sincronizar el checkbox de su lote
+  const loteKey = chk.dataset.lote;
+  if (loteKey) {
+    const loteChecks = document.querySelectorAll(`.emp-check[data-lote="${loteKey}"]:not(:disabled)`);
+    const loteHeaderCheck = document.querySelector(`.lote-check[data-lote="${loteKey}"]`);
+    if (loteHeaderCheck && loteChecks.length > 0) {
+      const arr = Array.from(loteChecks);
+      const allC = arr.every(c => c.checked);
+      const someC = arr.some(c => c.checked);
+      loteHeaderCheck.checked = allC;
+      loteHeaderCheck.indeterminate = (!allC && someC);
+      if (allC || someC) {
+        _lotesSeleccionados.add(loteKey);
+      } else {
+        _lotesSeleccionados.delete(loteKey);
+      }
+    }
+  }
+
+  actualizarCheckAll();
+  actualizarContador();
+}
+
+function actualizarCheckAll() {
+  const visibleChecks = document.querySelectorAll('.emp-check:not(:disabled)');
+  const checkAll = document.getElementById('checkAll');
+  if (checkAll) {
+    checkAll.checked = visibleChecks.length > 0 && Array.from(visibleChecks).every(c => c.checked);
+  }
+}
+
+function actualizarContador() {
+  const nEmp = _seleccionados.size;
+  const nLotes = _lotesSeleccionados.size;
+
+  let nEstudios = 0;
+  const lotesInvolucrados = new Set(_lotesSeleccionados);
+  _allData.forEach(r => {
+    if (_seleccionados.has(r.cuil)) {
+      nEstudios += (r.rowIndices || []).length;
+      const k = String(r.loteKey || `${r.contrato}___${r.srt}___${r.frecuencia}`).trim() +
+                '___' + String(r.establecimiento || 'SIN_ESTABLECIMIENTO').trim().toUpperCase();
+      lotesInvolucrados.add(k);
+    }
+  });
+
+  const statSel = document.getElementById('statSel');
+  if (statSel) statSel.textContent = nEmp > 0 ? `${nEmp} (${nEstudios} est)` : (nLotes > 0 ? `${nLotes} lotes` : '0');
+
+  const cntLotesSel = document.getElementById('cntLotesSel');
+  if (cntLotesSel) {
+    if (nLotes > 0 && nEmp === 0) {
+      cntLotesSel.textContent = `${nLotes} ${nLotes === 1 ? 'lote' : 'lotes'}`;
+    } else if (nEmp > 0) {
+      cntLotesSel.textContent = `${nEmp} ${nEmp === 1 ? 'emp.' : 'emps.'} (${lotesInvolucrados.size} ${lotesInvolucrados.size === 1 ? 'estab.' : 'estabs.'})`;
+    } else {
+      cntLotesSel.textContent = '0 seleccionados';
+    }
+  }
+
+  const btnGenerarVE = document.getElementById('btnGenerarVE');
+  if (btnGenerarVE) btnGenerarVE.disabled = (nLotes === 0 && nEmp === 0);
+}
+
+// ── GENERACIÓN Y COMUNICACIÓN DE NOTAS VE ────────────────
+function generarNotasVESeleccionados() {
+  const lotes = new Set(_lotesSeleccionados);
+  if (lotes.size === 0 && _seleccionados.size > 0) {
+    _allData.forEach(r => {
+      if (_seleccionados.has(r.cuil)) {
+        const k = String(r.loteKey || `${r.contrato}___${r.srt}___${r.frecuencia}`).trim() +
+                  '___' + String(r.establecimiento || 'SIN_ESTABLECIMIENTO').trim().toUpperCase();
+        lotes.add(k);
+      }
+    });
+  }
+
+  if (lotes.size === 0) {
+    toast('Seleccioná al menos un lote para generar la Nota VE', 'warning');
+    return;
+  }
+
+  let fechaRaw = document.getElementById('fechaCom').value;
+  if (!fechaRaw) {
+    const hoy = new Date();
+    fechaRaw = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+    document.getElementById('fechaCom').value = fechaRaw;
+  }
+  const p = fechaRaw.split('-');
+  const fecha = `${p[2]}/${p[1]}/${p[0]}`;
+
+  if (!confirm(`¿Generar la Nota Oficial VE en PDF y registrar el cierre de comunicación con fecha ${fecha} para ${lotes.size} establecimiento(s)?`)) {
+    return;
+  }
+
+  const btn = document.getElementById('btnGenerarVE');
+  const oldHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm"></span> Procesando VE (${lotes.size})...`;
+  }
+  toast(`Generando Nota VE y registrando fecha ${fecha}...`, 'info', 4000);
+
+  google.script.run
+    .withSuccessHandler(async res => {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+      }
+      if (res && res.status === 'OK') {
+        const ests = res.establecimientos || [];
+        if (ests.length === 0) {
+          toast('La comunicación fue registrada pero no se obtuvieron datos para el PDF', 'warning');
+        } else if (ests.length === 1) {
+          // Descarga directa del PDF y guardado en Drive
+          const est = ests[0];
+          const doc = buildPdf(est, fecha);
+          const fName = pdfFileName(est);
+          const pdfB64 = doc.output('datauristring');
+
+          // Guardar automáticamente en la carpeta de Drive del establecimiento
+          google.script.run.guardarNotaVEEnDrive({
+            cuitContrato: est.cuitContrato,
+            nombreContrato: est.nombreContrato,
+            srt: est.codigoSrt,
+            establecimiento: est.nombre,
+            nombreArchivo: fName,
+            pdfBase64: pdfB64,
+            fecha: fecha
+          });
+
+          doc.save(fName);
+          toast(`✓ Nota VE guardada en la carpeta Drive del establecimiento y descargada`, 'success', 5000);
+        } else {
+          // Descarga masiva en archivo ZIP con JSZip y guardado de cada una en Drive
+          const zip = new JSZip();
+          ests.forEach(est => {
+            const doc = buildPdf(est, fecha);
+            const fName = pdfFileName(est);
+            const pdfB64 = doc.output('datauristring');
+
+            // Guardar automáticamente en la carpeta de Drive del establecimiento
+            google.script.run.guardarNotaVEEnDrive({
+              cuitContrato: est.cuitContrato,
+              nombreContrato: est.nombreContrato,
+              srt: est.codigoSrt,
+              establecimiento: est.nombre,
+              nombreArchivo: fName,
+              pdfBase64: pdfB64,
+              fecha: fecha
+            });
+
+            const blob = doc.output('blob');
+            zip.file(fName, blob);
+          });
+          const content = await zip.generateAsync({ type: 'blob' });
+          const url = URL.createObjectURL(content);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Notas_VE_${fecha.replace(/\//g, '-')}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          toast(`✓ ${ests.length} Notas VE guardadas en sus carpetas de Drive y descargadas en ZIP`, 'success', 6000);
+        }
+
+        // Actualizar datos en memoria inmediatamente
+        _allData.forEach(r => {
+          const k = String(r.loteKey || `${r.contrato}___${r.srt}___${r.frecuencia}`).trim() +
+                    '___' + String(r.establecimiento || 'SIN_ESTABLECIMIENTO').trim().toUpperCase();
+          if (lotes.has(k) || lotes.has(r.loteKey)) {
+            r.comunicacion = fecha;
+            r.fechaComunicacionLote = fecha;
+            r.estadoLote = 'Lote Comunicado (VE)';
+            r.aptoComunicar = 'SÍ';
+            if (r.estudios) {
+              r.estudios.forEach(e => e.comunicacion = fecha);
+            }
+          }
+        });
+
+        _lotesSeleccionados.clear();
+        _seleccionados.clear();
+        actualizarContador();
+
+        // Cambiar vista a 'todos' para ver reflejado el estado 'Lote Comunicado' en verde sin tener que refrescar
+        const selEst = document.getElementById('selEstadoCom');
+        if (selEst && selEst.value === 'pendientes') {
+          selEst.value = 'todos';
+        }
+        filtrarVista();
+      } else {
+        toast('Error al comunicar lotes: ' + (res ? res.msg : 'Respuesta no válida'), 'error', 6000);
+      }
+    })
+    .withFailureHandler(err => {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+      }
+      toast('Error de conexión al generar VE: ' + err.message, 'error', 6000);
+    })
+    .comunicarLotesVE({ lotesKeys: Array.from(lotes), fecha: fecha });
+}
+
+function generarNotaYComunicarLote(key) {
+  _lotesSeleccionados.clear();
+  _lotesSeleccionados.add(key);
+  actualizarContador();
+  generarNotasVESeleccionados();
+}
+
+let _prestadoresReco = [];
+let _loteKeyModalReco = null;
+
+function generarNotaVEReconfirmacionLote(key) {
+  abrirModalConfeccionarVEReconf(key);
+}
+
+function alCambiarPrestadorReco(nombrePrestador) {
+  const p = _prestadoresReco.find(item => item.prestador && item.prestador.trim().toLowerCase() === String(nombrePrestador || '').trim().toLowerCase());
+  const domEl = document.getElementById('modal_reco_domicilio');
+  const telEl = document.getElementById('modal_reco_telefono');
+  if (p) {
+    if (domEl) domEl.value = p.domicilio || '';
+    if (telEl) telEl.value = p.telefono || '';
+  } else {
+    if (domEl) domEl.value = '';
+    if (telEl) telEl.value = '';
+  }
+  actualizarTextoNotaVE(true);
+}
+
+function generarTextoSugeridoVE() {
+  const prEl = document.getElementById('modal_reco_prestador');
+  const dmEl = document.getElementById('modal_reco_domicilio');
+  const tlEl = document.getElementById('modal_reco_telefono');
+
+  const prestador = (prEl ? prEl.value : '').trim();
+  const domicilio = (dmEl ? dmEl.value : '').trim();
+  const telefono = (tlEl ? tlEl.value : '').trim();
+
+  const p1 = 'Le informamos que como resultado de la realización de los exámenes periódicos se han detectado los desvios en los estudios que se listan a continuacion. Para dichos empleados es necesario realizar exámenes complementarios, con el fin de conocer su estado de Salud.\n\nA tal efecto solicitamos tenga a bien comunicarse con el prestador designado para coordinar los turnos en que concurrirán los empleados.';
+
+  const pPrestador = '[Datos del prestador]\nPrestador: ' + (prestador || '____________________') +
+    (domicilio ? '\nDomicilio: ' + domicilio : '') +
+    (telefono ? '\nTeléfono: ' + telefono : '');
+
+  const p2 = 'Consideramos oportuno solicitarle que tenga a bien comunicar fehacientemente a los empleados a quienes se les debe realizar el examen Reconfirmatorio, la ubicación del prestador y los turnos. Solicitamos también a Usted, tome las medidas necesarias para facilitar la concurrencia en las fechas acordadas con el prestador médico. Le recordamos que la realización de estos exámenes es de suma importancia para la detección precoz de una posible enfermedad profesional.';
+
+  const p3 = 'Para realizar consultas o reclamos por la presente citación comunicarse con 299 599-0713 (laprovidencia.cs@gmail.com) o al e-mail: amilano@horizonte.com.ar / nerxilape@horizonte.com.ar / xsitanor@horizonte.com.ar\n\nCordialmente';
+
+  return p1 + '\n\n' + pPrestador + '\n\n' + p2 + '\n\n' + p3;
+}
+
+function actualizarTextoNotaVE(forzar) {
+  const ta = document.getElementById('modal_reco_texto_nota');
+  if (!ta) return;
+  if (forzar || !ta.value.trim() || ta.dataset.modificado !== 'true') {
+    ta.value = generarTextoSugeridoVE();
+    if (forzar) ta.dataset.modificado = 'false';
+  }
+}
+
+function abrirModalConfeccionarVEReconf(key) {
+  _loteKeyModalReco = key;
+  const lote = _mapaLotesGlobal.get(key);
+  if (!lote) {
+    toast('No se encontraron los datos del establecimiento', 'warning');
+    return;
+  }
+
+  // Título y Subtítulo
+  document.getElementById('modalRecoTitulo').textContent = 'Confeccionar Nota VE de Reconfirmación — ' + (lote.establecimiento || 'Sin Establecimiento');
+  document.getElementById('modalRecoSubtitulo').innerHTML = `
+    <span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:5px; border:1px solid var(--border);">
+      CUIT: <b style="color:#fff;">${lote.contrato}</b> (${lote.nombreContrato || '—'})
+    </span>
+    <span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:5px; border:1px solid var(--border);">
+      SRT: <b style="color:#e2e8f0;">${lote.srt || '—'}</b>
+    </span>
+    ${lote.organismo ? `<span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:5px; border:1px solid var(--border);"><i class="bi bi-diagram-3"></i> ${cap(lote.organismo)}</span>` : ''}
+  `;
+
+  // Cargar lista de prestadores en el select
+  const selP = document.getElementById('modal_reco_prestador');
+  selP.innerHTML = '<option value="">-- Seleccionar prestador de reconfirmación --</option>';
+  _prestadoresReco.forEach(p => {
+    selP.innerHTML += `<option value="${esc(p.prestador)}">${esc(p.prestador)}</option>`;
+  });
+
+  // Detectar estudio original, fecha inicial y prestador inicial
+  let exInicial = 'AUDIOMETRIA';
+  let fInicial = '';
+  let pInicial = '';
+  const empsReco = [];
+  const todasFilasMadre = [];
+
+  lote.empleados.forEach(item => {
+    const r = item.r;
+    const ests = item.estudios || r.estudios || [];
+    let tieneReco = false;
+    let estNombre = '';
+
+    if (r.prestador && !pInicial) pInicial = r.prestador;
+
+    ests.forEach(e => {
+      const rNorm = String(e.resultado || '').toLowerCase();
+      if (rNorm.includes('pendiente') || rNorm.includes('desv')) {
+        tieneReco = true;
+        if (e.estudio && (!estNombre || estNombre === 'AUDIOMETRIA')) estNombre = e.estudio;
+        if ((e.fechaEstudio || e.fecha || e.fechaRealizacion) && !fInicial) {
+          fInicial = e.fechaEstudio || e.fecha || e.fechaRealizacion;
+        }
+        if (e.prestador && !pInicial) pInicial = e.prestador;
+        if (e.rowIndex) todasFilasMadre.push(e.rowIndex);
+      }
+    });
+
+    if (tieneReco || String(r.estadoConsolidado || '').toLowerCase().includes('pendiente de confirmaci')) {
+      if (estNombre && exInicial === 'AUDIOMETRIA') exInicial = estNombre;
+      empsReco.push({
+        cuil: r.cuil,
+        nombre: r.nombre || r.empleado,
+        estudioOriginal: estNombre || r.examen || 'AUDIOMETRIA',
+        filasMadre: r.rowIndices || []
+      });
+      if (Array.isArray(r.rowIndices)) {
+        r.rowIndices.forEach(idx => { if (!todasFilasMadre.includes(idx)) todasFilasMadre.push(idx); });
+      }
+    }
+  });
+
+  document.getElementById('modal_reco_examen_inicial').value = exInicial.toUpperCase();
+  document.getElementById('modal_reco_prestador_inicial').value = pInicial || lote.prestador || '';
+  document.getElementById('modal_reco_fecha_inicial').value = fInicial;
+
+  // Si falta fecha o prestador inicial, consultar de forma transparente a Hoja Madre
+  const primerCuil = empsReco.length > 0 ? empsReco[0].cuil : '';
+  if ((!fInicial || !pInicial) && (todasFilasMadre.length > 0 || primerCuil)) {
+    google.script.run
+      .withSuccessHandler(info => {
+        if (info && info.status === 'OK') {
+          if (info.fechaEstudio && !document.getElementById('modal_reco_fecha_inicial').value) {
+            document.getElementById('modal_reco_fecha_inicial').value = info.fechaEstudio;
+          }
+          if (info.prestador && !document.getElementById('modal_reco_prestador_inicial').value) {
+            document.getElementById('modal_reco_prestador_inicial').value = info.prestador;
+          }
+          actualizarTextoNotaVE(true);
+        }
+      })
+      .obtenerDatosEstudioInicialMadre(todasFilasMadre, primerCuil);
+  }
+
+  const exLow = exInicial.toLowerCase();
+  if (exLow.includes('orina')) {
+    document.getElementById('modal_reco_estudios_adicionales').value = 'Ecografía renal y vesical, Urocultivo, Clearance de creatinina, Citología urinaria, Dosaje de biomarcadores específicos en sangre u orina';
+  } else if (exLow.includes('fonia') || exLow.includes('voz')) {
+    document.getElementById('modal_reco_estudios_adicionales').value = 'Fibrolaringoscopia, Laringoestroboscopia';
+  } else if (exLow.includes('varic') || exLow.includes('mmii')) {
+    document.getElementById('modal_reco_estudios_adicionales').value = 'Eco Doppler venoso de miembros inferiores';
+  } else if (exLow.includes('espiro') || exLow.includes('pulmon') || exLow.includes('respirat')) {
+    document.getElementById('modal_reco_estudios_adicionales').value = 'Radiografía de tórax con técnica OIT, TAC de tórax de alta resolución, Prueba con broncodilatador, Pletismografía, Test de difusión de monóxido de carbono (DLCO)';
+  } else if (exLow.includes('audio') || exLow.includes('oido') || exLow.includes('ruido')) {
+    document.getElementById('modal_reco_estudios_adicionales').value = 'Audiometría tonal con 48 hs de reposo auditivo, Logoaudiometría, Impedanciometría, Otoemisiones acústicas, Potenciales evocados auditivos (BERA)';
+  } else {
+    document.getElementById('modal_reco_estudios_adicionales').value = `${exInicial} (Reconfirmación diagnóstica)`;
+  }
+
+  // Nómina de trabajadores
+  const tbody = document.getElementById('modalRecoNominaBody');
+  tbody.innerHTML = '';
+  empsReco.forEach((emp) => {
+    const dniFmt = cuilToDni(emp.cuil);
+    tbody.innerHTML += `
+      <tr style="border-bottom:1px solid var(--border);">
+        <td style="padding:6px 10px; text-align:center;">
+          <input type="checkbox" class="chk-reco-emp" value="${esc(emp.cuil)}" checked>
+        </td>
+        <td style="padding:6px 10px; font-weight:700; color:#fff;">${esc(emp.nombre)}</td>
+        <td style="padding:6px 10px; font-family:monospace; color:var(--cyan); text-align:center;">${dniFmt}</td>
+        <td style="padding:6px 10px; color:var(--muted);">${esc(emp.estudioOriginal)}</td>
+      </tr>
+    `;
+  });
+
+  // Si hay prestadores cargados, preseleccionar el primero
+  if (_prestadoresReco.length > 0) {
+    selP.value = _prestadoresReco[0].prestador;
+    alCambiarPrestadorReco(_prestadoresReco[0].prestador);
+  } else {
+    document.getElementById('modal_reco_domicilio').value = '';
+    document.getElementById('modal_reco_telefono').value = '';
+  }
+
+  // Inicializar texto sugerido en textarea editable
+  actualizarTextoNotaVE(true);
+
+  document.getElementById('modalConfeccionarVEReconf').style.display = 'flex';
+}
+
+function cerrarModalConfeccionarVEReconf() {
+  const m = document.getElementById('modalConfeccionarVEReconf');
+  if (m) m.style.display = 'none';
+  _loteKeyModalReco = null;
+}
+
+function ejecutarGeneracionVEReconf() {
+  if (!_loteKeyModalReco) return;
+  const lote = _mapaLotesGlobal.get(_loteKeyModalReco);
+  if (!lote) return;
+
+  const prestador = (document.getElementById('modal_reco_prestador').value || '').trim();
+  const domicilio = (document.getElementById('modal_reco_domicilio').value || '').trim();
+  const telefono = (document.getElementById('modal_reco_telefono').value || '').trim();
+  const examenInicial = (document.getElementById('modal_reco_examen_inicial').value || 'AUDIOMETRIA').trim();
+  const prestadorInicial = (document.getElementById('modal_reco_prestador_inicial').value || '').trim();
+  const fechaExamenInicial = (document.getElementById('modal_reco_fecha_inicial').value || '').trim();
+  const estudiosAdicionales = (document.getElementById('modal_reco_estudios_adicionales').value || '').trim();
+  const textoPersonalizado = (document.getElementById('modal_reco_texto_nota')?.value || '').trim();
+
+  if (!prestador) {
+    toast('Debe seleccionar el prestador de reconfirmación', 'warning');
+    return;
+  }
+  if (!estudiosAdicionales) {
+    toast('Debe especificar los estudios adicionales', 'warning');
+    return;
+  }
+
+  const chks = document.querySelectorAll('.chk-reco-emp:checked');
+  if (chks.length === 0) {
+    toast('Debe seleccionar al menos un trabajador a citar', 'warning');
+    return;
+  }
+  const cuilsSeleccionados = Array.from(chks).map(c => c.value);
+
+  // Fecha de emisión actual (se guarda como Fecha_VE y se muestra en la vista)
+  const hoy = new Date();
+  const fechaEmision = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${hoy.getFullYear()}`;
+
+  const btn = document.getElementById('btnEjecutarGenerarVEReconf');
+  const oldHtml = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner spin" style="width:13px; height:13px; margin-right:5px; border-width:2px;"></span> Generando...';
+  }
+
+  toast(`Generando Nota VE de Reconfirmación para ${prestador}...`, 'info', 4000);
+
+  const payload = {
+    loteKey: _loteKeyModalReco,
+    fecha: fechaEmision,
+    prestador: prestador,
+    domicilio: domicilio,
+    telefono: telefono,
+    prestadorInicial: prestadorInicial,
+    estudiosAdicionales: estudiosAdicionales,
+    examenInicial: examenInicial,
+    fechaExamenInicial: fechaExamenInicial,
+    textoPersonalizado: textoPersonalizado,
+    cuils: cuilsSeleccionados
+  };
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+      }
+      if (res && res.status === 'OK' && res.establecimientos && res.establecimientos.length > 0) {
+        const est = res.establecimientos[0];
+        const meta = res.metaReconfirmacion || payload;
+        meta.prestador = prestador;
+        meta.domicilio = domicilio;
+        meta.telefono = telefono;
+        meta.textoPersonalizado = textoPersonalizado;
+        meta.prestadorInicial = prestadorInicial;
+        meta.examenInicial = examenInicial;
+        meta.fechaExamenInicial = fechaExamenInicial;
+        meta.estudiosAdicionales = estudiosAdicionales;
+
+        const doc = buildPdfReconfirmacion(est, meta, fechaEmision);
+        const safe = (s) => String(s || '').replace(/[\\/:*?"<>|]+/g, '-').trim();
+        const fName = `Comunicacion de Reconfirmacion de EMP - ${safe(est.nombre)} - ${safe(est.codigoSrt)}.pdf`;
+        const pdfB64 = doc.output('datauristring');
+
+        // Guardar automáticamente en la carpeta de Drive del establecimiento
+        google.script.run.guardarNotaVEEnDrive({
+          cuitContrato: est.cuitContrato,
+          nombreContrato: est.nombreContrato,
+          srt: est.codigoSrt,
+          establecimiento: est.nombre,
+          nombreArchivo: fName,
+          pdfBase64: pdfB64,
+          fecha: fechaEmision
+        });
+
+        doc.save(fName);
+        toast(`✓ Nota VE de Reconfirmación descargada y archivada en Drive`, 'success', 5000);
+
+        // Actualizar en memoria con la fecha de emisión
+        _allData.forEach(r => {
+          const k = String(r.loteKey || `${r.contrato}___${r.srt}___${r.frecuencia}`).trim() +
+                    '___' + String(r.establecimiento || 'SIN_ESTABLECIMIENTO').trim().toUpperCase();
+          if (k === _loteKeyModalReco || r.loteKey === _loteKeyModalReco) {
+            const normEst = String(r.estadoConsolidado || '').toLowerCase();
+            if (normEst.includes('pendiente de confirmaci') || normEst.includes('desv')) {
+              r.fechaVE = fechaEmision;
+              r.prestador2 = prestador;
+            }
+          }
+        });
+        filtrarVista();
+        cerrarModalConfeccionarVEReconf();
+      } else {
+        toast('Error al generar VE de reconfirmación: ' + (res ? res.msg : 'Sin datos'), 'error', 5000);
+      }
+    })
+    .withFailureHandler(err => {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = oldHtml;
+      }
+      toast('Error de conexión al generar VE: ' + err.message, 'error', 5000);
+    })
+    .comunicarLoteReconfirmacionVE(payload);
+}
+
+function reimprimirNotaVELote(key) {
+  let fechaRaw = document.getElementById('fechaCom').value;
+  let fecha = '';
+  if (fechaRaw) {
+    const p = fechaRaw.split('-');
+    fecha = `${p[2]}/${p[1]}/${p[0]}`;
+  }
+
+  toast('Obteniendo datos para reimprimir Nota VE...', 'info', 3000);
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && res.status === 'OK' && res.establecimientos && res.establecimientos.length > 0) {
+        const est = res.establecimientos[0];
+        const fechaEmis = fecha || est.fechaEmision;
+        const doc = buildPdf(est, fechaEmis);
+        const fName = pdfFileName(est);
+        const pdfB64 = doc.output('datauristring');
+
+        // Guardar/actualizar en la carpeta de Drive del establecimiento
+        google.script.run.guardarNotaVEEnDrive({
+          cuitContrato: est.cuitContrato,
+          nombreContrato: est.nombreContrato,
+          srt: est.codigoSrt,
+          establecimiento: est.nombre,
+          nombreArchivo: fName,
+          pdfBase64: pdfB64,
+          fecha: fechaEmis
+        });
+
+        doc.save(fName);
+        toast('✓ Nota VE descargada y guardada en su carpeta de Drive', 'success', 4000);
+      } else {
+        toast('No se encontraron datos para reimprimir la VE de este establecimiento', 'warning', 4000);
+      }
+    })
+    .withFailureHandler(err => {
+      toast('Error al reimprimir VE: ' + err.message, 'error');
+    })
+    .obtenerDatosDetalleLotesVE({ lotesKeys: [key], fecha: fecha });
+}
+
+// ── ACORDEÓN BAJO DEMANDA ────────────────────────────────
+function renderEstudiosAcordeon(cuil, r) {
+  const tbody = document.getElementById(`tbody_det_${cuil}`);
+  if (!tbody) return;
+  if (!r.estudios || r.estudios.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:12px; color:var(--muted);">Sin estudios adicionales registrados en este legajo.</td></tr>';
+    return;
+  }
+  let filas = '';
+  r.estudios.forEach(e => {
+    let adjHtml = '';
+    if (e.adjunto1) adjHtml += `<a href="${_formatearLinkDrive_(e.adjunto1)}" target="_blank" rel="noopener noreferrer" style="color:var(--cyan); margin:0 3px;" title="Ver adjunto 1"><i class="bi bi-paperclip"></i></a>`;
+    if (e.adjunto2) adjHtml += `<a href="${_formatearLinkDrive_(e.adjunto2)}" target="_blank" rel="noopener noreferrer" style="color:var(--cyan); margin:0 3px;" title="Ver adjunto 2"><i class="bi bi-paperclip"></i></a>`;
+
+    filas += `
+      <tr>
+        <td style="font-weight:600;">${e.estudio}</td>
+        <td style="color:#93c5fd;">${e.prestador ? cap(e.prestador) : (r.prestador ? cap(r.prestador) : '—')}</td>
+        <td><span class="badge-res ${badgeCls(e.resultado)}">${e.resultado || 'Sin resultado'}</span></td>
+        <td><div class="obs-box">${e.observacion ? e.observacion : '<span style="color:var(--muted);">Sin observación</span>'}</div></td>
+        <td style="color:var(--muted);">${formatDateDDMMAAAA(e.fechaEstudio) || '-'}</td>
+        <td style="color:var(--muted);">${e.fechaAuditoria || '-'}</td>
+        <td style="text-align:center;">${adjHtml || '—'}</td>
+        <td style="text-align:center;">
+          ${e.comunicacion
+            ? `<span style="color:var(--green); font-size:0.62rem;"><i class="bi bi-check2"></i> ${e.comunicacion}</span>`
+            : `<span style="color:var(--amber); font-size:0.62rem;">Pendiente</span>`}
+        </td>
+      </tr>`;
+  });
+  tbody.innerHTML = filas;
+}
+
+function toggleDetalles(cuil, btn) {
+  const row = document.getElementById(`details_${cuil}`);
+  const icon = document.getElementById(`icon_${cuil}`);
+  if (!row) return;
+  const estaOculto = row.style.display === 'none';
+  if (estaOculto) {
+    row.style.display = 'table-row';
+    if (icon) {
+      icon.className = 'bi bi-chevron-down';
+      icon.style.color = 'var(--blue)';
+    }
+    const r = _allData.find(item => String(item.cuil).trim() === String(cuil).trim());
+    if (r) {
+      if (r.estudios && r.estudios.length > 0) {
+        renderEstudiosAcordeon(cuil, r);
+      } else {
+        const tbody = document.getElementById(`tbody_det_${cuil}`);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:12px; color:var(--muted);"><span class="spinner-border spinner-border-sm"></span> Cargando estudios...</td></tr>';
+        google.script.run
+          .withSuccessHandler(estudios => {
+            r.estudios = estudios || [];
+            renderEstudiosAcordeon(cuil, r);
+          })
+          .withFailureHandler(err => {
+            if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:12px; color:var(--amber);">Sin detalle adicional disponible</td></tr>';
+          })
+          .obtenerEstudiosEmpleado(r.cuil);
+      }
+    }
+  } else {
+    row.style.display = 'none';
+    if (icon) {
+      icon.className = 'bi bi-chevron-right';
+      icon.style.color = '';
+    }
+  }
+}
+
+// ── CARPETA EN DRIVE [2026-09-06] ────────────────────────
+function abrirCarpetaDrive(cuit, contrato, srt, estab, btn) {
+  const win = window.open('about:blank', '_blank');
+  if (win) win.document.write('<p style="font-family:sans-serif;padding:20px;color:#475569;">Buscando carpeta en Drive...</p>');
+
+  google.script.run
+    .withSuccessHandler(url => {
+      if (url) {
+        if (win) win.location.href = url;
+        else window.open(url, '_blank');
+      } else {
+        if (win) win.close();
+        toast('La carpeta de este establecimiento aún no fue creada en Drive', 'warning');
+      }
+    })
+    .withFailureHandler(err => {
+      if (win) win.close();
+      toast('Error al consultar Drive: ' + err.message, 'error');
+    })
+    .obtenerUrlCarpetaEstablecimiento(cuit, contrato, srt, estab);
+}
+
+// ── COMUNICAR INDIVIDUAL/SELECCIONADOS [2026-09-06] ──────
+function comunicarSeleccionados() {
+  const fechaRaw = document.getElementById('fechaCom').value;
+  if (!fechaRaw) { toast('Seleccioná una fecha primero', 'warning'); return; }
+
+  const p     = fechaRaw.split('-');
+  const fecha = `${p[2]}/${p[1]}/${p[0]}`;
+
+  // Recolectar todos los rowIndices de los empleados seleccionados
+  const indices = [];
+  _allData.forEach(r => {
+    if (_seleccionados.has(r.cuil)) {
+      indices.push(...(r.rowIndices || []));
+    }
+  });
+
+  if (indices.length === 0) { toast('Seleccioná al menos un empleado', 'warning'); return; }
+
+  const nEmp = _seleccionados.size;
+  if (!confirm(`¿Registrar comunicación del ${fecha} para ${nEmp} empleado(s) (${indices.length} estudios)?`)) return;
+
+  const btn = document.getElementById('btnComunicar');
+  btn.disabled  = true;
+  btn.innerHTML = `<i class="bi bi-hourglass-split"></i> Guardando...`;
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res.status === 'OK') {
+        toast(`✓ ${nEmp} empleado(s) (${res.cantidad} estudios) comunicados el ${fecha}`, 'success', 5000);
+        // Actualizar datos en memoria
+        _allData.forEach(r => {
+          if (_seleccionados.has(r.cuil)) {
+            r.comunicacion = fecha;
+            if (r.estudios) {
+              r.estudios.forEach(e => e.comunicacion = fecha);
+            }
+          }
+        });
+        _seleccionados.clear();
+        filtrarVista();
+      } else {
+        toast('Error: ' + res.msg, 'error');
+      }
+      btn.disabled  = false;
+      btn.innerHTML = `<i class="bi bi-send-check-fill"></i> Comunicar (<span id="cntSel">0</span>)`;
+      actualizarContador();
+    })
+    .withFailureHandler(err => {
+      toast('Error de conexión: ' + err.message, 'error');
+      btn.disabled  = false;
+      btn.innerHTML = `<i class="bi bi-send-check-fill"></i> Comunicar (<span id="cntSel">0</span>)`;
+    })
+    .comunicarRegistros({ indices, fecha });
+}
+</script>
+
+<!-- MODAL VENTANILLAS DEL ESTABLECIMIENTO -->
+<div id="modalVentanillas" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:10005; align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this)cerrarModalVentanillas()">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; max-width:880px; width:100%; box-shadow:0 20px 50px rgba(0,0,0,0.7); position:relative; overflow:hidden; display:flex; flex-direction:column; max-height:88vh;">
+    
+    <!-- Encabezado del Modal -->
+    <div style="padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; background:var(--surface2);">
+      <div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; background:rgba(56,189,248,0.15); color:#38bdf8; font-size:1rem;">
+            <i class="bi bi-window-stack"></i>
+          </span>
+          <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:#fff;" id="modalVentTitulo">Ventanillas Electrónicas</h3>
+        </div>
+        <div id="modalVentSubtitulo" style="font-size:0.75rem; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
+        </div>
+      </div>
+      <button type="button" onclick="cerrarModalVentanillas()" style="background:none; border:none; color:var(--muted); font-size:1.4rem; cursor:pointer; line-height:1;" title="Cerrar modal">&times;</button>
+    </div>
+
+    <!-- Cuerpo del Modal (Scrollable) -->
+    <div style="padding:20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:18px;">
+      
+      <!-- Resumen de Estado del Lote y Ventanillas -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;" id="modalVentStats">
+      </div>
+
+      <!-- Sección: Documentos Oficiales VE en Google Drive -->
+      <div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <div style="font-weight:700; font-size:0.85rem; color:#e2e8f0; display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-cloud-check-fill" style="color:#38bdf8;"></i> Documentos de Ventanilla Electrónica en Drive
+          </div>
+          <button id="btnModalAbrirDrive" class="btn-head" style="font-size:0.7rem; padding:3px 9px;" title="Abrir carpeta de Drive del establecimiento">
+            <i class="bi bi-folder2-open" style="color:var(--amber);"></i> Abrir Carpeta Drive
+          </button>
+        </div>
+
+        <div id="modalVentDriveList" style="min-height:90px;">
+          <div style="text-align:center; padding:30px; color:var(--muted);">
+            <div class="spinner" style="margin:0 auto 10px auto; width:24px; height:24px;"></div>
+            Buscando notas y documentos en la carpeta del establecimiento...
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección: Acciones Rápidas de Emisión y Descarga -->
+      <div style="background:rgba(255,255,255,0.02); border:1px solid var(--border); border-radius:8px; padding:14px;">
+        <div style="font-weight:700; font-size:0.8rem; color:#e2e8f0; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+          <i class="bi bi-lightning-charge-fill" style="color:var(--amber);"></i> Acciones Rápidas para este Establecimiento
+        </div>
+        <div id="modalVentAcciones" style="display:flex; gap:10px; flex-wrap:wrap;">
+        </div>
+      </div>
+
+      <!-- Sección: Nómina y Estudios que componen la Ventanilla -->
+      <div>
+        <div style="font-weight:700; font-size:0.85rem; color:#e2e8f0; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+          <i class="bi bi-person-lines-fill" style="color:var(--blue);"></i> Nómina y Dictámenes a Notificar
+        </div>
+        <div style="max-height:220px; overflow-y:auto; border:1px solid var(--border); border-radius:8px;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.72rem;">
+            <thead>
+              <tr style="background:var(--surface2); color:var(--muted); text-align:left; position:sticky; top:0; z-index:1;">
+                <th style="padding:6px 10px;">CUIL</th>
+                <th style="padding:6px 10px;">Apellido y Nombre</th>
+                <th style="padding:6px 10px;">Dictamen / Estado</th>
+                <th style="padding:6px 10px;">Informe en VE</th>
+                <th style="padding:6px 10px; text-align:center;">Estudios</th>
+              </tr>
+            </thead>
+            <tbody id="modalVentNominaBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Pie del Modal -->
+    <div style="padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:10px; background:var(--surface2);">
+      <button type="button" class="btn-head" onclick="cerrarModalVentanillas()">Cerrar</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL CONFECCIONAR VE DE RECONFIRMACIÓN -->
+<div id="modalConfeccionarVEReconf" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:10006; align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this)cerrarModalConfeccionarVEReconf()">
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:12px; max-width:820px; width:100%; box-shadow:0 20px 50px rgba(0,0,0,0.7); position:relative; overflow:hidden; display:flex; flex-direction:column; max-height:90vh;">
+    
+    <!-- Encabezado del Modal -->
+    <div style="padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; background:var(--surface2);">
+      <div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; background:rgba(217,119,6,0.18); color:#fbbf24; font-size:1rem;">
+            <i class="bi bi-file-earmark-medical-fill"></i>
+          </span>
+          <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:#fff;" id="modalRecoTitulo">Confeccionar Nota VE de Reconfirmación</h3>
+        </div>
+        <div id="modalRecoSubtitulo" style="font-size:0.75rem; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; margin-top:4px;">
+        </div>
+      </div>
+      <button type="button" onclick="cerrarModalConfeccionarVEReconf()" style="background:none; border:none; color:var(--muted); font-size:1.4rem; cursor:pointer; line-height:1;" title="Cerrar modal">&times;</button>
+    </div>
+
+    <!-- Cuerpo del Modal (Scrollable) -->
+    <div style="padding:18px 20px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:16px;">
+      
+      <!-- Sección 1: Prestador de Reconfirmación y Consultorio -->
+      <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px;">
+        <div style="font-weight:700; font-size:0.8rem; color:#e2e8f0; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+          <i class="bi bi-hospital" style="color:var(--amber);"></i> 1. Prestador de Reconfirmación y Consultorio
+        </div>
+        <div style="display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:10px;">
+          <div>
+            <label style="font-size:0.7rem; color:var(--muted); display:block; margin-bottom:4px;">Prestador que realizará la reconfirmación (Hoja prestador_reco):</label>
+            <select id="modal_reco_prestador" class="filter-select" style="width:100%;" onchange="alCambiarPrestadorReco(this.value)">
+              <option value="">-- Seleccionar prestador --</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:2fr 1fr; gap:10px;">
+          <div>
+            <label style="font-size:0.7rem; color:var(--muted); display:block; margin-bottom:4px;">Domicilio del Consultorio Médico:</label>
+            <input type="text" id="modal_reco_domicilio" class="search-input" style="width:100%;" placeholder="Domicilio del consultorio médico" oninput="actualizarTextoNotaVE(false)">
+          </div>
+          <div>
+            <label style="font-size:0.7rem; color:var(--muted); display:block; margin-bottom:4px;">Teléfono de Contacto:</label>
+            <input type="text" id="modal_reco_telefono" class="search-input" style="width:100%;" placeholder="Teléfono de contacto" oninput="actualizarTextoNotaVE(false)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Sección 2: Desvío Detectado y Estudios Re-Confirmatorios -->
+      <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px;">
+        <div style="font-weight:700; font-size:0.8rem; color:#e2e8f0; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+          <i class="bi bi-clipboard2-pulse" style="color:var(--cyan);"></i> 2. Desvío Detectado y Estudios Re-Confirmatorios
+        </div>
+        <div style="display:grid; grid-template-columns:1.5fr 1.2fr 0.9fr; gap:10px; margin-bottom:10px;">
+          <div>
+            <label style="font-size:0.7rem; color:var(--muted); display:block; margin-bottom:4px;">Examen Periódico Inicial con Desvío:</label>
+            <input type="text" id="modal_reco_examen_inicial" class="search-input" style="width:100%;" value="AUDIOMETRIA" oninput="actualizarTextoNotaVE(false)">
+          </div>
+          <div>
+            <label style="font-size:0.7rem; color:var(--muted); display:block; margin-bottom:4px;">Prestador que realizó el estudio:</label>
+            <input type="text" id="modal_reco_prestador_inicial" class="search-input" style="width:100%;" placeholder="Prestador inicial" oninput="actualizarTextoNotaVE(false)">
+          </div>
+          <div>
+            <label style="font-size:0.7rem; color:var(--muted); display:block; margin-bottom:4px;">Fecha Examen (Col. AB):</label>
+            <input type="text" id="modal_reco_fecha_inicial" class="search-input" style="width:100%;" placeholder="DD/MM/AAAA" oninput="actualizarTextoNotaVE(false)">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:0.7rem; color:var(--muted); display:block; margin-bottom:4px;">Estudios Adicionales a Realizar (para rectificar o ratificar):</label>
+          <input type="text" id="modal_reco_estudios_adicionales" class="search-input" style="width:100%;" value="Audiometría tonal (vías aéreas y óseas) y Logo Audiometría" oninput="actualizarTextoNotaVE(false)">
+        </div>
+      </div>
+
+      <!-- Sección 3: Texto Oficial de la Nota VE (Editable) -->
+      <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <div style="font-weight:700; font-size:0.8rem; color:#e2e8f0; display:flex; align-items:center; gap:6px;">
+            <i class="bi bi-file-earmark-text" style="color:var(--amber);"></i> 3. Texto Oficial de la Nota VE (Editable)
+          </div>
+          <button type="button" onclick="actualizarTextoNotaVE(true)" style="background:none; border:none; color:var(--cyan); font-size:0.7rem; cursor:pointer; padding:0; display:flex; align-items:center; gap:4px;" title="Regenerar texto con los datos actuales">
+            <i class="bi bi-arrow-clockwise"></i> Reestablecer texto sugerido
+          </button>
+        </div>
+        <textarea id="modal_reco_texto_nota" class="search-input" style="width:100%; min-height:85px; font-size:0.75rem; line-height:1.45; font-family:inherit; resize:vertical; padding:8px 10px;" placeholder="Cuerpo de la Nota VE..."></textarea>
+        <div style="font-size:0.68rem; color:var(--muted); margin-top:4px;">
+          <i class="bi bi-pencil"></i> Puede modificar la redacción directamente aquí. Este texto se plasmará en el PDF oficial.
+        </div>
+      </div>
+
+      <!-- Sección 4: Trabajadores Incluidos -->
+      <div>
+        <div style="font-weight:700; font-size:0.8rem; color:#e2e8f0; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+          <i class="bi bi-people-fill" style="color:var(--blue);"></i> 4. Nómina de Trabajadores a Incluir en la Nota VE
+        </div>
+        <div style="max-height:160px; overflow-y:auto; border:1px solid var(--border); border-radius:8px;">
+          <table style="width:100%; border-collapse:collapse; font-size:0.72rem;">
+            <thead>
+              <tr style="background:var(--surface2); color:var(--muted); text-align:left; position:sticky; top:0; z-index:1;">
+                <th style="padding:6px 10px; width:36px; text-align:center;">Inc.</th>
+                <th style="padding:6px 10px;">Apellido y Nombre</th>
+                <th style="padding:6px 10px; text-align:center;">DNI</th>
+                <th style="padding:6px 10px;">Estudio Inicial</th>
+              </tr>
+            </thead>
+            <tbody id="modalRecoNominaBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Pie del Modal -->
+    <div style="padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; background:var(--surface2);">
+      <div style="font-size:0.7rem; color:var(--muted);">
+        <i class="bi bi-info-circle"></i> Se guardará la fecha actual de emisión en Desvíos (Col Fecha_VE) y se generará el PDF oficial.
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-head" onclick="cerrarModalConfeccionarVEReconf()">Cancelar</button>
+        <button type="button" class="btn-primary-head" id="btnEjecutarGenerarVEReconf" style="background:#b45309; border-color:#b45309;" onclick="ejecutarGeneracionVEReconf()">
+          <i class="bi bi-file-earmark-pdf-fill"></i> Generar y Descargar Nota VE (PDF)
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ==================================================================
+// FUNCIONES DEL MODAL VENTANILLAS DEL ESTABLECIMIENTO
+// ==================================================================
+let _loteKeyModalVentanillas = null;
+
+function abrirModalVentanillas(key) {
+  _loteKeyModalVentanillas = key;
+  const lote = _mapaLotesGlobal.get(key);
+  if (!lote) {
+    toast('No se encontraron los datos del establecimiento', 'warning');
+    return;
+  }
+
+  // Título
+  document.getElementById('modalVentTitulo').textContent = 'Ventanillas Electrónicas — ' + (lote.establecimiento || 'Sin Establecimiento');
+  
+  // Subtítulo con badges
+  const subHtml = `
+    <span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:5px; border:1px solid var(--border);">
+      CUIT: <b style="color:#fff;">${lote.contrato}</b> (${lote.nombreContrato || '—'})
+    </span>
+    <span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:5px; border:1px solid var(--border);">
+      SRT: <b style="color:#e2e8f0;">${lote.srt || '—'}</b> · Frec: <b style="color:#e2e8f0;">${lote.frecuencia || '—'}</b>
+    </span>
+    ${lote.organismo ? `<span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:5px; border:1px solid var(--border);"><i class="bi bi-diagram-3"></i> ${cap(lote.organismo)}</span>` : ''}
+  `;
+  document.getElementById('modalVentSubtitulo').innerHTML = subHtml;
+
+  // Botón abrir Drive del header modal
+  const btnDrive = document.getElementById('btnModalAbrirDrive');
+  if (btnDrive) {
+    btnDrive.onclick = () => abrirCarpetaDrive(lote.contrato, lote.nombreContrato || lote.contrato, lote.srt, lote.establecimiento, btnDrive);
+  }
+
+  // Métricas / Stats
+  let fechaComLote = '';
+  lote.empleados.forEach(item => {
+    if (item.r.fechaVE && !fechaComLote) fechaComLote = item.r.fechaVE;
+    if (item.r.comunicacion && !fechaComLote) fechaComLote = item.r.comunicacion;
+  });
+
+  const tienePendConfirm = lote.totalPendientesConfirmacion > 0;
+  let estadoBadge = '';
+  if (tienePendConfirm) {
+    estadoBadge = `<span style="color:#f87171; font-weight:700;"><i class="bi bi-x-octagon-fill"></i> Bloqueado por Reconfirmación (${lote.totalPendientesConfirmacion})</span>`;
+  } else if (lote.totalPendientes === 0) {
+    estadoBadge = `<span style="color:#34d399; font-weight:700;"><i class="bi bi-check-all"></i> Lote Notificado / Comunicado ${fechaComLote ? '(' + fechaComLote + ')' : ''}</span>`;
+  } else if (lote.totalAptos > 0) {
+    estadoBadge = `<span style="color:#38bdf8; font-weight:700;"><i class="bi bi-check-circle-fill"></i> Listo para Emitir VE (${lote.totalAptos} aptos)</span>`;
+  } else {
+    estadoBadge = `<span style="color:var(--muted); font-weight:700;"><i class="bi bi-hourglass-split"></i> En espera de cierre</span>`;
+  }
+
+  let nNormales = 0, nEnfProf = 0, nAusentes = 0;
+  lote.empleados.forEach(item => {
+    const norm = String(item.r.estadoConsolidado || '').toLowerCase();
+    if (norm.includes('normal')) nNormales++;
+    else if (norm.includes('enfermedad profesional')) nEnfProf++;
+    else nAusentes++;
+  });
+
+  const statsHtml = `
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px;">
+      <div style="font-size:0.68rem; color:var(--muted); margin-bottom:4px;">ESTADO DE LA VENTANILLA</div>
+      <div style="font-size:0.82rem;">${estadoBadge}</div>
+    </div>
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px;">
+      <div style="font-size:0.68rem; color:var(--muted); margin-bottom:4px;">TOTAL NÓMINA / ESTUDIOS</div>
+      <div style="font-size:0.85rem; font-weight:700; color:#fff;">
+        <i class="bi bi-people-fill" style="color:var(--cyan);"></i> ${lote.empleados.length} empleados <span style="font-size:0.75rem; color:var(--muted); font-weight:400;">(${lote.totalEstudios} estudios)</span>
+      </div>
+    </div>
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px;">
+      <div style="font-size:0.68rem; color:var(--muted); margin-bottom:4px;">DISTRIBUCIÓN EN NOTA VE</div>
+      <div style="font-size:0.75rem; color:#cbd5e1; display:flex; gap:8px; flex-wrap:wrap;">
+        <span style="color:#34d399;"><b>${nNormales}</b> Normal</span>
+        <span style="color:#f87171;"><b>${nEnfProf}</b> Enf. Prof.</span>
+        <span style="color:#fbbf24;"><b>${lote.totalPendientesConfirmacion}</b> Reconf.</span>
+        <span style="color:var(--muted);"><b>${Math.max(0, nAusentes - lote.totalPendientesConfirmacion)}</b> Ausente</span>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalVentStats').innerHTML = statsHtml;
+
+  // Acciones Rápidas
+  let accionesHtml = '';
+  if (tienePendConfirm) {
+    accionesHtml += `
+      <button class="btn-comunicar-lote" style="background:#b45309; border-color:#b45309; color:#fff; font-size:0.75rem; padding:6px 14px;" onclick="generarNotaVEReconfirmacionLote('${key}')">
+        <i class="bi bi-file-earmark-medical-fill"></i> Generar / Descargar VE Reconfirmación (${lote.totalPendientesConfirmacion})
+      </button>
+      <a href="<?= url ?>?v=desvios" class="btn-head" style="font-size:0.75rem; padding:6px 14px; border-color:var(--amber); color:var(--amber); text-decoration:none;">
+        <i class="bi bi-pencil-square"></i> Resolver Reconfirmaciones en Desvíos
+      </a>
+    `;
+  }
+  if (lote.totalPendientes === 0) {
+    accionesHtml += `
+      <button class="btn-head" style="font-size:0.75rem; padding:6px 14px; color:#34d399; border-color:#34d399;" onclick="reimprimirNotaVELote('${key}')">
+        <i class="bi bi-file-earmark-pdf"></i> Reimprimir / Descargar Nota VE Lote Completo
+      </button>
+    `;
+  } else if (lote.totalAptos > 0 && !tienePendConfirm) {
+    accionesHtml += `
+      <button class="btn-comunicar-lote" style="font-size:0.75rem; padding:6px 14px;" onclick="generarNotaYComunicarLote('${key}')">
+        <i class="bi bi-file-earmark-pdf-fill"></i> Generar Nota VE y Comunicar Lote (${lote.totalAptos})
+      </button>
+    `;
+  }
+  accionesHtml += `
+    <button class="btn-head" style="font-size:0.75rem; padding:6px 14px;" onclick="abrirCarpetaDrive('${lote.contrato}','${lote.nombreContrato || lote.contrato}','${lote.srt}','${lote.establecimiento}', this)">
+      <i class="bi bi-folder2-open" style="color:var(--amber);"></i> Abrir Carpeta en Google Drive
+    </button>
+  `;
+  document.getElementById('modalVentAcciones').innerHTML = accionesHtml;
+
+  // Nómina de Empleados
+  const tbodyNom = document.getElementById('modalVentNominaBody');
+  tbodyNom.innerHTML = '';
+  lote.empleados.forEach(item => {
+    const emp = item.r;
+    const norm = String(emp.estadoConsolidado || '').toLowerCase();
+    let dictamenBadge = '';
+    let veBadge = '';
+
+    if (norm.includes('normal')) {
+      dictamenBadge = '<span style="color:#34d399;"><i class="bi bi-check-circle"></i> Normal Laboral</span>';
+      veBadge = '<span style="color:#34d399; font-weight:700;">Normal Laboral</span>';
+    } else if (norm.includes('enfermedad profesional')) {
+      dictamenBadge = '<span style="color:#f87171;"><i class="bi bi-exclamation-diamond-fill"></i> Enf. Profesional</span>';
+      veBadge = '<span style="color:#f87171; font-weight:700;">Enfermedad Profesional</span>';
+    } else if (norm.includes('pendiente de confirmaci')) {
+      dictamenBadge = '<span style="color:#fbbf24;"><i class="bi bi-hourglass-split"></i> Pend. Confirmación</span>';
+      veBadge = '<span style="color:#fbbf24; font-weight:700;">VE Reconfirmación (Específica)</span>';
+    } else {
+      dictamenBadge = `<span style="color:var(--muted);">${emp.estadoConsolidado || 'Sin Auditoría'}</span>`;
+      veBadge = '<span style="color:var(--muted); font-style:italic;">Ausente</span>';
+    }
+
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+    tr.innerHTML = `
+      <td style="padding:6px 10px; font-family:monospace; color:#93c5fd;">${emp.cuil || '—'}</td>
+      <td style="padding:6px 10px; font-weight:600; color:#fff;">${emp.apeNom || '—'}</td>
+      <td style="padding:6px 10px;">${dictamenBadge}</td>
+      <td style="padding:6px 10px;">${veBadge}</td>
+      <td style="padding:6px 10px; text-align:center; color:var(--muted);">${(emp.rowIndices || []).length || emp.totalEstudios || 1}</td>
+    `;
+    tbodyNom.appendChild(tr);
+  });
+
+  // Mostrar modal
+  document.getElementById('modalVentanillas').style.display = 'flex';
+
+  // Consultar archivos en Drive
+  cargarArchivosVentanillaDrive(lote);
+}
+
+function cerrarModalVentanillas() {
+  const m = document.getElementById('modalVentanillas');
+  if (m) m.style.display = 'none';
+  _loteKeyModalVentanillas = null;
+}
+
+function cargarArchivosVentanillaDrive(lote) {
+  const container = document.getElementById('modalVentDriveList');
+  if (!container) return;
+  container.innerHTML = `
+    <div style="text-align:center; padding:25px; color:var(--muted); font-size:0.75rem;">
+      <div class="spinner" style="margin:0 auto 10px auto; width:22px; height:22px;"></div>
+      Consultando archivos en la carpeta de Drive del establecimiento...
+    </div>
+  `;
+
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res && res.status === 'OK') {
+        const archivos = res.archivos || [];
+        if (archivos.length === 0) {
+          container.innerHTML = `
+            <div style="background:rgba(255,255,255,0.02); border:1px dashed var(--border); border-radius:8px; padding:20px; text-align:center; color:var(--muted); font-size:0.75rem;">
+              <i class="bi bi-file-earmark-x" style="font-size:1.8rem; display:block; margin-bottom:8px; color:var(--muted);"></i>
+              Aún no se ha guardado una Nota VE en la carpeta de Drive de este establecimiento.<br>
+              Puede generarla y archivarla automáticamente usando los botones de acción rápida de arriba.
+            </div>
+          `;
+          return;
+        }
+
+        let html = '<div style="display:flex; flex-direction:column; gap:8px;">';
+        archivos.forEach(arch => {
+          html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; gap:12px; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:10px; min-width:250px;">
+                <span style="font-size:1.4rem; color:${arch.color};">
+                  <i class="bi ${arch.icon}"></i>
+                </span>
+                <div>
+                  <div style="font-weight:700; font-size:0.78rem; color:#fff;">${arch.nombre}</div>
+                  <div style="font-size:0.68rem; color:var(--muted); display:flex; gap:10px; margin-top:2px;">
+                    <span style="color:${arch.color}; font-weight:600;">${arch.tipo}</span>
+                    <span><i class="bi bi-calendar3"></i> ${arch.fechaMod}</span>
+                    <span><i class="bi bi-hdd"></i> ${arch.tamanio}</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <a href="${arch.url}" target="_blank" class="btn-head" style="font-size:0.7rem; padding:4px 10px; color:#38bdf8; border-color:rgba(56,189,248,0.4); text-decoration:none;">
+                  <i class="bi bi-eye-fill"></i> Ver en Drive
+                </a>
+                <a href="${arch.downloadUrl}" target="_blank" class="btn-head" style="font-size:0.7rem; padding:4px 10px; color:#34d399; border-color:rgba(52,211,153,0.4); text-decoration:none;">
+                  <i class="bi bi-download"></i> Descargar
+                </a>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      } else {
+        container.innerHTML = `
+          <div style="padding:15px; color:var(--amber); font-size:0.75rem; text-align:center;">
+            <i class="bi bi-exclamation-triangle"></i> ${res ? res.msg : 'No se pudo consultar Drive'}
+          </div>
+        `;
+      }
+    })
+    .withFailureHandler(err => {
+      container.innerHTML = `
+        <div style="padding:15px; color:var(--red); font-size:0.75rem; text-align:center;">
+          <i class="bi bi-x-circle"></i> Error al conectar con Drive: ${err.message}
+        </div>
+      `;
+    })
+    .listarVentanillasEstablecimiento({
+      cuitContrato: lote.contrato,
+      nombreContrato: lote.nombreContrato,
+      srt: lote.srt,
+      establecimiento: lote.establecimiento
+    });
+}
+</script>
+
+</body>
+</html>

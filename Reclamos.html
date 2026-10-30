@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reclamos a Prestadores · Auditoría Médica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0b1120;
+      --surface:  #111827;
+      --surface2: #1a2236;
+      --border:   #1e2d45;
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --blue:     #3b82f6;
+      --green:    #10b981;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --cyan:     #06b6d4;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; font-weight:400 !important; font-size:.78rem; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); font-size:.78rem; min-height:100vh; overflow-x:hidden; }
+
+    /* LOADING OVERLAY */
+    #overlay { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; gap:16px; }
+    .spinner { width:40px; height:40px; border:3px solid var(--border); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .spin { animation:spin .8s linear infinite; display:inline-block; }
+    #overlay p { color:var(--muted); font-size:.78rem; }
+
+    /* HEADER */
+    .dash-header { background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%); border-bottom:1px solid var(--border); padding:12px 24px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; gap:12px; flex-wrap:wrap; }
+    .logo { display:flex; align-items:center; gap:12px; }
+    .logo-icon { width:36px; height:36px; background:linear-gradient(135deg,var(--red),var(--amber)); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; }
+    .logo-icon i { font-size:1.1rem; }
+    .logo-title { font-size:.78rem; color:#fff; }
+    .logo-sub   { font-size:.78rem; color:var(--muted); margin-top:2px; }
+    .header-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+    .btn-head { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:7px; padding:6px 12px; cursor:pointer; font-size:.78rem; font-family:inherit; transition:all .2s; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+    .btn-head:hover { background:var(--border); color:#fff; }
+    .btn-primary-head { background:var(--red); border:1px solid var(--red); color:#fff; border-radius:7px; padding:6px 14px; cursor:pointer; font-size:.78rem; font-family:inherit; transition:all .2s; display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+    .btn-primary-head:hover { background:#dc2626; }
+
+    /* BODY */
+    .dash-body { padding:18px 24px; max-width:1720px; margin:0 auto; }
+
+    /* STATS / KPIS */
+    .stats-bar { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:14px; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:12px 16px; display:flex; flex-direction:column; gap:4px; }
+    .stat-val { font-size:.78rem; color:#fff; }
+    .stat-lbl { font-size:.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:.3px; }
+
+    /* FILTERS */
+    .filter-bar { display:flex; gap:10px; margin-bottom:14px; align-items:center; flex-wrap:wrap; background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:10px 14px; }
+    .filter-select { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:7px; padding:6px 12px; font-size:.78rem; font-family:inherit; cursor:pointer; min-width:180px; }
+    .filter-select:focus { outline:none; border-color:var(--red); }
+    .search-input { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:7px; padding:6px 14px; font-size:.78rem; font-family:inherit; flex:1; min-width:220px; }
+    .search-input:focus { outline:none; border-color:var(--red); }
+    .search-input::placeholder { color:var(--muted); }
+
+    /* TABLE */
+    .table-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+    .table-scroll { overflow-x:auto; max-height:75vh; overflow-y:auto; }
+    table.emp-table { width:100%; border-collapse:collapse; font-size:.78rem; }
+    table.emp-table thead th { background:var(--surface2); padding:10px 14px; text-align:left; font-size:.78rem; text-transform:uppercase; letter-spacing:.3px; color:var(--muted); white-space:nowrap; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:5; }
+    table.emp-table thead th.center { text-align:center; }
+    table.emp-table tbody tr.emp-row { border-bottom:1px solid rgba(30,45,69,.5); transition:background .15s; cursor:pointer; }
+    table.emp-table tbody tr.emp-row:hover { background:rgba(239,68,68,.06); }
+    table.emp-table td { padding:10px 14px; vertical-align:middle; font-size:.78rem; }
+
+    /* BADGES */
+    .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:.78rem; letter-spacing:.2px; }
+    .badge-err { background:rgba(239,68,68,.15); color:var(--red); border:1px solid rgba(239,68,68,.3); }
+    .badge-blue { background:rgba(59,130,246,.15); color:var(--blue); border:1px solid rgba(59,130,246,.3); }
+    .badge-cyan { background:rgba(6,182,212,.15); color:var(--cyan); border:1px solid rgba(6,182,212,.3); }
+
+    /* ACCORDION DETAIL ROW */
+    .detail-row { display:none; background:rgba(15,23,42,.75); }
+    .detail-container { padding:14px 18px; border-left:3px solid var(--red); margin:4px 0; display:flex; flex-direction:column; gap:12px; }
+
+    /* BARRA DE ACCIONES DEL PRESTADOR */
+    .prestador-action-bar {
+      background: linear-gradient(90deg, #1e293b 0%, #17243a 100%);
+      border: 1px solid rgba(239,68,68,.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .prestador-action-title {
+      font-size: .78rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* SUBTABLA DE ESTUDIOS A RECLAMAR */
+    .subtable-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    table.sub-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .78rem;
+    }
+    table.sub-table thead th {
+      background: var(--surface2);
+      padding: 8px 12px;
+      text-align: left;
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: .3px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    table.sub-table tbody tr {
+      border-bottom: 1px solid rgba(30,45,69,.4);
+      transition: background .12s;
+    }
+    table.sub-table tbody tr:hover {
+      background: rgba(239,68,68,.04);
+    }
+    table.sub-table td {
+      padding: 9px 12px;
+      vertical-align: middle;
+      font-size: .78rem;
+    }
+
+    .obs-box-reclamo {
+      background: rgba(255,255,255,0.04);
+      border-left: 2px solid var(--red);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: .78rem;
+      color: #cbd5e1;
+      max-width: 340px;
+    }
+
+    /* TOAST */
+    #toast { position:fixed; bottom:20px; right:20px; z-index:10000; padding:10px 18px; border-radius:8px; font-size:.78rem; display:none; box-shadow:0 4px 16px rgba(0,0,0,.4); }
+    .toast-ok { background:var(--green); color:#fff; }
+    .toast-err { background:var(--red); color:#fff; }
+    .toast-info { background:var(--blue); color:#fff; }
+    .toast-warn { background:var(--amber); color:#000; }
+  </style>
+</head>
+<body>
+
+  <!-- LOADING OVERLAY -->
+  <div id="overlay">
+    <div class="spinner"></div>
+    <p>Cargando estudios a reclamar por prestador...</p>
+  </div>
+
+  <!-- HEADER -->
+  <header class="dash-header">
+    <div class="logo">
+      <div class="logo-icon"><i class="bi bi-file-earmark-x-fill"></i></div>
+      <div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="logo-title">Control y Gestión de Reclamos a Prestadores</div>
+          <span class="badge-impl" style="background:rgba(239,68,68,.18); color:#fca5a5; border:1px solid rgba(239,68,68,.35); font-size:.62rem; font-weight:700; padding:2px 7px; border-radius:6px; letter-spacing:.5px;">v 091026 12:15:00 (v165)</span>
+        </div>
+        <div class="logo-sub">Auditoría Médica · Faltantes y Estudios Totales de Exámenes agrupados por Prestador</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <a href="<?= url ?>" class="btn-head"><i class="bi bi-arrow-left"></i> Auditoría</a>
+      <a href="<?= url ?>?v=empleados" class="btn-head"><i class="bi bi-people"></i> Empleados</a>
+      <a href="<?= url ?>?v=desvios" class="btn-head"><i class="bi bi-exclamation-octagon"></i> Desvíos</a>
+      <a href="<?= url ?>?v=comunicacion" class="btn-head"><i class="bi bi-send-check-fill"></i> Comunicar</a>
+      <a href="<?= url ?>?v=avance" class="btn-head"><i class="bi bi-speedometer2"></i> Avance</a>
+      <a href="<?= url ?>?v=cobertura" class="btn-head"><i class="bi bi-grid-3x3-gap"></i> Cobertura</a>
+      <button type="button" class="btn-head" id="btnSyncMadre" onclick="sincronizarConMadre()" style="border-color:rgba(239,68,68,0.4); color:#fca5a5;">
+        <i class="bi bi-arrow-repeat" id="iconSync"></i> Sincronizar con Madre
+      </button>
+      <button type="button" class="btn-primary-head" onclick="recargar()"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+    </div>
+  </header>
+
+  <main class="dash-body">
+
+    <!-- STATS / KPIS: PRIMERO TOTALES, DESPUES FALTANTES -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="stat-val" id="statPrestadores">0</div>
+        <div class="stat-lbl">Prestadores con Reclamos</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--blue);">
+        <div class="stat-val" style="color:var(--blue);" id="statTotalesEstudios">0</div>
+        <div class="stat-lbl">Estudios Totales de esos Legajos</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--red);">
+        <div class="stat-val" style="color:var(--red);" id="statAusentes">0</div>
+        <div class="stat-lbl">Estudios Faltantes a Reclamar</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--cyan);">
+        <div class="stat-val" style="color:var(--cyan);" id="statEmpleados">0</div>
+        <div class="stat-lbl">Empleados Afectados</div>
+      </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="filter-bar">
+      <input type="text" class="search-input" id="filtroBuscar" placeholder="🔍 Buscar por Prestador, Estudio, Empleado, CUIL o Establecimiento..." oninput="filtrarTabla()">
+      <select class="filter-select" id="filtroPrestador" onchange="filtrarTabla()">
+        <option value="">Prestador: Todos</option>
+      </select>
+      <select class="filter-select" id="filtroEstudio" onchange="filtrarTabla()">
+        <option value="">Estudio Faltante: Todos</option>
+      </select>
+      <button class="btn-head" onclick="limpiarFiltros()" title="Limpiar todos los filtros">
+        <i class="bi bi-eraser"></i> Limpiar
+      </button>
+      <div style="margin-left:auto; display:flex; gap:6px;">
+        <button class="btn-head" onclick="alternarTodosPrestadores(true)" title="Desplegar todos hacia abajo">
+          <i class="bi bi-arrows-expand"></i> Expandir todos
+        </button>
+        <button class="btn-head" onclick="alternarTodosPrestadores(false)" title="Colapsar todos">
+          <i class="bi bi-arrows-collapse"></i> Colapsar todos
+        </button>
+      </div>
+    </div>
+
+    <!-- TABLA PRINCIPAL: AGRUPADA POR PRESTADOR (TOTALES ANTES QUE FALTANTES, SIN NEGRITA) -->
+    <div class="table-card">
+      <div class="table-scroll">
+        <table class="emp-table">
+          <thead>
+            <tr>
+              <th style="min-width:240px;">Prestador</th>
+              <th class="center" style="width:160px;">Estudios Totales</th>
+              <th class="center" style="width:160px;">Estudios Faltantes</th>
+              <th class="center" style="width:140px;">Empleados Afectados</th>
+              <th style="min-width:220px;">Establecimientos Involucrados</th>
+              <th class="center" style="width:180px;">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody">
+            <tr><td colspan="6" style="text-align:center; padding:30px; color:var(--muted);">Cargando reclamos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- TOAST -->
+  <div id="toast"></div>
+
+  <script type="application/json" id="__sd__"><?!= initialData ?></script>
+
+  <script>
+    var _allReclamosRaw = [];
+    var _estudiosReclamables = [];
+    var _gruposPrestador = [];
+    var _gruposFiltrados = [];
+    var _estadoAcordeon = {};
+
+    function esc(s) {
+      if (s === null || s === undefined) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatFechaDDMMAAAA(s) {
+      if (!s && s !== 0) return '';
+      s = String(s).trim();
+      if (!s || s === '-' || s.toLowerCase() === 'invalid date') return '';
+      const mArSlash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (mArSlash) return `${mArSlash[1].padStart(2, '0')}/${mArSlash[2].padStart(2, '0')}/${mArSlash[3]}`;
+      const mArDash = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
+      if (mArDash) return `${mArDash[1].padStart(2, '0')}/${mArDash[2].padStart(2, '0')}/${mArDash[3]}`;
+      const mIso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (mIso) return `${mIso[3].padStart(2, '0')}/${mIso[2].padStart(2, '0')}/${mIso[1]}`;
+      const dt = new Date(s);
+      if (!isNaN(dt.getTime()) && dt.getFullYear() > 1900 && dt.getFullYear() < 2100) {
+        const d = String(dt.getDate()).padStart(2, '0');
+        const m = String(dt.getMonth() + 1).padStart(2, '0');
+        const y = dt.getFullYear();
+        return `${d}/${m}/${y}`;
+      }
+      return s;
+    }
+
+    function _esResultadoApto(res) {
+      if (!res) return false;
+      var r = String(res).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+      return r.indexOf('normal laboral') !== -1 || r.indexOf('enfermedad profesional') !== -1 || r.indexOf('desistido') !== -1;
+    }
+
+    function toast(msg, tipo, dur) {
+      tipo = tipo || 'info';
+      dur = dur || 3500;
+      var t = document.getElementById('toast');
+      if (!t) return;
+      t.className = 'toast-' + tipo;
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(function() { t.style.display = 'none'; }, dur);
+    }
+
+    function recargar() {
+      document.getElementById('overlay').style.display = 'flex';
+      google.script.run
+        .withSuccessHandler(function(data) {
+          document.getElementById('overlay').style.display = 'none';
+          procesarReclamos(Array.isArray(data) ? data : []);
+          actualizarFiltros();
+          filtrarTabla();
+          toast('✓ Reclamos actualizados correctamente', 'ok');
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('overlay').style.display = 'none';
+          toast('Error al cargar reclamos: ' + (err ? err.message : ''), 'err', 5000);
+        })
+        .obtenerRegistrosReclamos();
+    }
+
+    function sincronizarConMadre() {
+      var btn = document.getElementById('btnSyncMadre');
+      var icon = document.getElementById('iconSync');
+      if (btn) btn.disabled = true;
+      if (icon) icon.classList.add('spin');
+      toast('Sincronizando casos reclamables desde Hoja Madre...', 'info', 10000);
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (btn) btn.disabled = false;
+          if (icon) icon.classList.remove('spin');
+          toast('✓ Sincronización exitosa desde Hoja Madre', 'ok', 4000);
+          recargar();
+        })
+        .withFailureHandler(function(err) {
+          if (btn) btn.disabled = false;
+          if (icon) icon.classList.remove('spin');
+          toast('Error al sincronizar: ' + (err ? err.message : ''), 'err', 5000);
+        })
+        .sincronizarTodasLasHojasDesdeMadre();
+    }
+
+    window.onload = function() {
+      try {
+        var raw = document.getElementById('__sd__').textContent;
+        var list = JSON.parse(raw || '[]');
+        if (Array.isArray(list) && list.length > 0) {
+          document.getElementById('overlay').style.display = 'none';
+          procesarReclamos(list);
+          actualizarFiltros();
+          filtrarTabla();
+          return;
+        }
+      } catch(e) {
+        console.warn("Error leyendo initialData, recargando via script.run", e);
+      }
+      recargar();
+    };
+
+    function procesarReclamos(list) {
+      _allReclamosRaw = list;
+      _estudiosReclamables = [];
+
+      var mapPrest = {};
+      var ordenPrest = [];
+
+      list.forEach(function(emp, empIdx) {
+        var estudios = [];
+        try {
+          var det = emp.estudios || [];
+          estudios = Array.isArray(det) ? det : (typeof det === 'string' ? JSON.parse(det || '[]') : []);
+        } catch(e) {
+          estudios = [];
+        }
+
+        var prestadorGeneral = String(emp.prestador || 'Sin Prestador').trim();
+        if (!prestadorGeneral) prestadorGeneral = 'Sin Prestador';
+
+        estudios.forEach(function(est, estIdx) {
+          var res = String(est.resultado || '').trim();
+          var resNorm = res.toLowerCase();
+          var esAusente = resNorm.indexOf('ausente') !== -1;
+          var esDefecto = resNorm.indexOf('defectuosa') !== -1 || resNorm.indexOf('defecto') !== -1;
+          var esNoApto = (res !== '') && !_esResultadoApto(res);
+
+          if (est.esReclamable || esAusente || esDefecto || esNoApto) {
+            var pItem = String(est.prestador || prestadorGeneral).trim() || 'Sin Prestador';
+
+            var objFaltante = {
+              id: 'rec_' + empIdx + '_' + estIdx,
+              prestador: pItem,
+              estudio: String(est.estudio || 'Estudio sin nombre').trim(),
+              resultado: res || 'Ausente/Sin realizar',
+              esAusente: esAusente || (!esDefecto && !esNoApto) || (esNoApto && !esDefecto),
+              esDefecto: esDefecto,
+              observacion: String(est.observacion || '').trim(),
+              cuil: emp.cuil || '',
+              empleado: emp.empleado || emp.apeNom || '',
+              establecimiento: emp.establecimiento || 'Sin Establecimiento',
+              srt: emp.srt || '',
+              contrato: emp.contrato || '',
+              nombreContrato: emp.nombreContrato || '',
+              organismo: emp.organismo || '',
+              fechaEstudio: est.fechaEstudio || '',
+              fechaAuditoria: est.fechaAuditoria || emp.fechaAuditoria || '',
+              adjunto1: est.adjunto1 || '',
+              adjunto2: est.adjunto2 || '',
+              rowIndex: est.rowIndex || ''
+            };
+
+            _estudiosReclamables.push(objFaltante);
+
+            var pKey = 'prest_' + pItem.replace(/[^a-zA-Z0-9]/g, '_');
+            if (!mapPrest[pKey]) {
+              mapPrest[pKey] = {
+                prestKey: pKey,
+                nombre: pItem,
+                estudios: [],
+                cuilsMap: {},
+                estabsSet: new Set()
+              };
+              ordenPrest.push(pKey);
+            }
+
+            mapPrest[pKey].estudios.push(objFaltante);
+            if (emp.cuil) {
+              var totEstEmp = Number(emp.totalEstudios || (estudios.length > 0 ? estudios.length : 1));
+              mapPrest[pKey].cuilsMap[emp.cuil] = totEstEmp;
+            }
+            if (emp.establecimiento) {
+              mapPrest[pKey].estabsSet.add(emp.establecimiento);
+            }
+          }
+        });
+      });
+
+      _gruposPrestador = ordenPrest.map(function(k) {
+        var g = mapPrest[k];
+        var sumTotales = 0;
+        for (var c in g.cuilsMap) {
+          sumTotales += g.cuilsMap[c];
+        }
+        return {
+          prestKey: g.prestKey,
+          nombre: g.nombre,
+          estudios: g.estudios,
+          totalFaltantes: g.estudios.length,
+          totalEstudios: sumTotales > 0 ? sumTotales : g.estudios.length,
+          totalEmpleados: Object.keys(g.cuilsMap).length,
+          totalEstablecimientos: g.estabsSet.size,
+          estabsNombres: Array.from(g.estabsSet)
+        };
+      });
+
+      calcularStats();
+    }
+
+    function calcularStats() {
+      document.getElementById('statPrestadores').textContent = _gruposPrestador.length;
+
+      var totFaltantes = 0;
+      var sumGlobalTotales = 0;
+      var cuilsTotales = new Set();
+
+      _gruposPrestador.forEach(function(g) {
+        totFaltantes += g.totalFaltantes;
+        sumGlobalTotales += g.totalEstudios;
+        g.estudios.forEach(function(st) {
+          if (st.cuil) cuilsTotales.add(st.cuil);
+        });
+      });
+
+      document.getElementById('statTotalesEstudios').textContent = sumGlobalTotales;
+      document.getElementById('statAusentes').textContent = totFaltantes;
+      document.getElementById('statEmpleados').textContent = cuilsTotales.size;
+    }
+
+    function actualizarFiltros() {
+      var prestadores = [];
+      var estudios = [];
+
+      _estudiosReclamables.forEach(function(st) {
+        if (st.prestador && prestadores.indexOf(st.prestador) === -1) prestadores.push(st.prestador);
+        if (st.estudio && estudios.indexOf(st.estudio) === -1) estudios.push(st.estudio);
+      });
+
+      prestadores.sort();
+      estudios.sort();
+
+      var selP = document.getElementById('filtroPrestador');
+      selP.innerHTML = '<option value="">Prestador: Todos (' + prestadores.length + ')</option>';
+      prestadores.forEach(function(p) {
+        selP.innerHTML += '<option value="' + esc(p) + '">' + esc(p) + '</option>';
+      });
+
+      var selE = document.getElementById('filtroEstudio');
+      selE.innerHTML = '<option value="">Estudio Faltante: Todos (' + estudios.length + ')</option>';
+      estudios.forEach(function(e) {
+        selE.innerHTML += '<option value="' + esc(e) + '">' + esc(e) + '</option>';
+      });
+    }
+
+    function limpiarFiltros() {
+      document.getElementById('filtroBuscar').value = '';
+      document.getElementById('filtroPrestador').value = '';
+      document.getElementById('filtroEstudio').value = '';
+      filtrarTabla();
+    }
+
+    function filtrarTabla() {
+      var bus = (document.getElementById('filtroBuscar').value || '').toLowerCase().trim();
+      var fPrest = document.getElementById('filtroPrestador').value;
+      var fEst = document.getElementById('filtroEstudio').value;
+
+      _gruposFiltrados = [];
+
+      _gruposPrestador.forEach(function(grp) {
+        if (fPrest && grp.nombre !== fPrest) return;
+
+        var estudiosFiltrados = grp.estudios.filter(function(st) {
+          if (fEst && st.estudio !== fEst) return false;
+
+          if (bus) {
+            var txt = [st.prestador, st.estudio, st.resultado, st.empleado, st.cuil, st.establecimiento, st.srt, st.observacion].join(' ').toLowerCase();
+            if (txt.indexOf(bus) === -1) return false;
+          }
+
+          return true;
+        });
+
+        if (estudiosFiltrados.length > 0) {
+          var cuils = new Set();
+          var estabs = new Set();
+          estudiosFiltrados.forEach(function(s) {
+            if (s.cuil) cuils.add(s.cuil);
+            if (s.establecimiento) estabs.add(s.establecimiento);
+          });
+
+          _gruposFiltrados.push({
+            prestKey: grp.prestKey,
+            nombre: grp.nombre,
+            estudios: estudiosFiltrados,
+            totalFaltantes: estudiosFiltrados.length,
+            totalEstudios: grp.totalEstudios,
+            totalEmpleados: cuils.size,
+            totalEstablecimientos: estabs.size,
+            estabsNombres: Array.from(estabs)
+          });
+        }
+      });
+
+      renderTabla();
+    }
+
+    function renderTabla() {
+      var tbody = document.getElementById('tablaBody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      if (_gruposFiltrados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:30px; color:var(--muted);">No se encontraron reclamos con los filtros aplicados.</td></tr>';
+        return;
+      }
+
+      var frag = document.createDocumentFragment();
+
+      _gruposFiltrados.forEach(function(grp) {
+        var isExpanded = (_estadoAcordeon[grp.prestKey] === true);
+
+        // FILA PRINCIPAL: PRIMERO ESTUDIOS TOTALES, DESPUES FALTANTES (SIN NEGRITA)
+        var tr = document.createElement('tr');
+        tr.className = 'emp-row';
+        tr.id = 'row_' + grp.prestKey;
+        tr.onclick = function() { toggleDetallePrestador(grp.prestKey); };
+        tr.innerHTML = 
+          '<td>' +
+            '<div style="color:#fff; display:flex; align-items:center; gap:8px;">' +
+              '<i class="bi bi-hospital" style="color:var(--cyan);"></i>' +
+              '<span>' + esc(grp.nombre) + '</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="center">' +
+            '<span class="badge badge-blue">' +
+              '<i class="bi bi-collection"></i> ' + grp.totalEstudios + ' totales' +
+            '</span>' +
+          '</td>' +
+          '<td class="center">' +
+            '<span class="badge badge-err">' +
+              '<i class="bi bi-exclamation-triangle-fill"></i> ' + grp.totalFaltantes + ' faltante' + (grp.totalFaltantes !== 1 ? 's' : '') +
+            '</span>' +
+          '</td>' +
+          '<td class="center">' +
+            '<span class="badge badge-cyan"><i class="bi bi-people-fill"></i> ' + grp.totalEmpleados + ' empleado(s)</span>' +
+          '</td>' +
+          '<td>' +
+            '<div style="color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px;" title="' + esc(grp.estabsNombres.join(', ')) + '">' +
+              '<i class="bi bi-buildings" style="margin-right:4px; color:var(--muted);"></i>' +
+              grp.totalEstablecimientos + ' establecimiento(s)' +
+            '</div>' +
+          '</td>' +
+          '<td class="center">' +
+            '<div style="display:flex; gap:6px; justify-content:center;">' +
+              '<button type="button" class="btn-head" style="padding:4px 8px; color:var(--cyan); border-color:rgba(6,182,212,0.4);" onclick="event.stopPropagation(); copiarReclamoTexto(\'' + grp.prestKey + '\')" title="Copiar texto formal de reclamo">' +
+                '<i class="bi bi-clipboard-check"></i> Copiar Reclamo' +
+              '</button>' +
+              '<button type="button" class="btn-head" style="padding:4px 8px;" onclick="event.stopPropagation(); toggleDetallePrestador(\'' + grp.prestKey + '\')" title="Desplegar estudios hacia abajo">' +
+                '<i class="bi ' + (isExpanded ? 'bi-chevron-up' : 'bi-chevron-down') + '" id="chev_' + grp.prestKey + '"></i>' +
+              '</button>' +
+            '</div>' +
+          '</td>';
+
+        frag.appendChild(tr);
+
+        // FILA OCULTA DE DETALLE (SIN COLUMNA DE MOTIVO, SIN NEGRITA, TIPOGRAFIA UNIFORME)
+        var trDetalle = document.createElement('tr');
+        trDetalle.className = 'detail-row';
+        trDetalle.id = 'detalle_' + grp.prestKey;
+        trDetalle.style.display = isExpanded ? 'table-row' : 'none';
+
+        var filasSubHtml = '';
+        grp.estudios.forEach(function(st) {
+          var driveBtn = (st.adjunto1 || st.adjunto2)
+            ? '<a href="' + esc(st.adjunto1 || st.adjunto2) + '" target="_blank" class="btn-head" style="padding:2px 6px; color:var(--cyan); border-color:rgba(6,182,212,0.3);" title="Ver adjunto"><i class="bi bi-file-earmark-pdf"></i> Drive</a>'
+            : '<span style="color:var(--muted);">—</span>';
+
+          var obsHtml = st.observacion
+            ? '<div class="obs-box-reclamo">' + esc(st.observacion) + '</div>'
+            : '<span style="color:var(--muted);">—</span>';
+
+          filasSubHtml += 
+            '<tr>' +
+              '<td>' +
+                '<div style="color:#fff;">' + esc(st.estudio) + '</div>' +
+                (st.resultado ? '<div style="font-size:0.65rem; color:#f97316; font-weight:600;"><i class="bi bi-exclamation-triangle"></i> ' + esc(st.resultado) + '</div>' : '') +
+                (st.rowIndex ? '<div style="color:var(--muted); font-family:monospace; font-size:0.62rem;">Fila Madre #' + st.rowIndex + '</div>' : '') +
+              '</td>' +
+              '<td>' +
+                '<div style="color:#fff;">' + esc(st.empleado) + '</div>' +
+                '<div style="font-family:monospace; color:var(--cyan);">' + esc(st.cuil) + '</div>' +
+              '</td>' +
+              '<td>' +
+                '<div style="color:var(--text);">' + esc(st.establecimiento) + '</div>' +
+                (st.organismo ? '<div style="color:var(--muted);">' + esc(st.organismo) + '</div>' : '') +
+              '</td>' +
+              '<td>' +
+                '<div style="color:var(--cyan); font-family:monospace;">' + esc(st.srt || '—') + '</div>' +
+              '</td>' +
+              '<td>' +
+                '<div style="color:var(--text);">' + (formatFechaDDMMAAAA(st.fechaEstudio) || '—') + '</div>' +
+                (st.fechaAuditoria ? '<div style="color:var(--muted);">Aud: ' + esc(formatFechaDDMMAAAA(st.fechaAuditoria)) + '</div>' : '') +
+              '</td>' +
+              '<td>' + obsHtml + '</td>' +
+              '<td style="text-align:center;">' + driveBtn + '</td>' +
+            '</tr>';
+        });
+
+        trDetalle.innerHTML = 
+          '<td colspan="6">' +
+            '<div class="detail-container">' +
+              '<div class="prestador-action-bar">' +
+                '<div class="prestador-action-title">' +
+                  '<i class="bi bi-hospital" style="color:var(--cyan);"></i>' +
+                  '<span>Estudios Faltantes del Prestador: ' + esc(grp.nombre) + ' (' + grp.totalFaltantes + ' faltantes de ' + grp.totalEstudios + ' estudios totales)</span>' +
+                '</div>' +
+                '<div>' +
+                  '<button type="button" class="btn-head" style="color:var(--cyan); border-color:rgba(6,182,212,0.5);" onclick="copiarReclamoTexto(\'' + grp.prestKey + '\')">' +
+                    '<i class="bi bi-clipboard-check"></i> Copiar Reclamo para ' + esc(grp.nombre) +
+                  '</button>' +
+                '</div>' +
+              '</div>' +
+
+              '<div class="subtable-card">' +
+                '<table class="sub-table">' +
+                  '<thead>' +
+                    '<tr>' +
+                      '<th style="width:230px;">Estudio Faltante</th>' +
+                      '<th style="width:210px;">Empleado</th>' +
+                      '<th style="min-width:180px;">Establecimiento</th>' +
+                      '<th style="width:110px;">Código SRT</th>' +
+                      '<th style="width:120px;">Fechas</th>' +
+                      '<th style="min-width:180px;">Observación Auditoría</th>' +
+                      '<th style="width:70px; text-align:center;">Adjunto</th>' +
+                    '</tr>' +
+                  '</thead>' +
+                  '<tbody>' +
+                    filasSubHtml +
+                  '</tbody>' +
+                '</table>' +
+              '</div>' +
+            '</div>' +
+          '</td>';
+
+        frag.appendChild(trDetalle);
+      });
+
+      tbody.appendChild(frag);
+    }
+
+    function toggleDetallePrestador(prestKey) {
+      var d = document.getElementById('detalle_' + prestKey);
+      var chev = document.getElementById('chev_' + prestKey);
+      if (!d) return;
+
+      var isHidden = (d.style.display === 'none' || !d.style.display);
+      d.style.display = isHidden ? 'table-row' : 'none';
+      if (chev) {
+        chev.className = isHidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+      }
+      _estadoAcordeon[prestKey] = isHidden;
+    }
+
+    function alternarTodosPrestadores(expandir) {
+      document.querySelectorAll('tr.detail-row').forEach(function(tr) {
+        tr.style.display = expandir ? 'table-row' : 'none';
+      });
+      document.querySelectorAll('i[id^="chev_"]').forEach(function(chev) {
+        chev.className = expandir ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+      });
+      _gruposPrestador.forEach(function(g) {
+        _estadoAcordeon[g.prestKey] = expandir;
+      });
+    }
+
+    // Copia el texto exacto pedido por el usuario
+    function copiarReclamoTexto(prestKey) {
+      var grp = _gruposPrestador.find(function(g) { return g.prestKey === prestKey; });
+      if (!grp) return;
+
+      var lineas = [];
+      lineas.push('Estimado/s, agradeceremos nos remitan a la brevedad los estudios que no fueron recibidos junto con el resto de ellos:');
+      lineas.push('');
+
+      // Agrupar por Establecimiento y Codigo SRT
+      var porEstab = {};
+      grp.estudios.forEach(function(st) {
+        var eNom = st.establecimiento || 'Sin Establecimiento';
+        var eSrt = st.srt || '';
+        var key = eNom + '___' + eSrt;
+
+        if (!porEstab[key]) {
+          porEstab[key] = {
+            establecimiento: eNom,
+            srt: eSrt,
+            empleados: {}
+          };
+        }
+
+        var cuilKey = (st.cuil || '') + '___' + (st.empleado || '');
+        if (!porEstab[key].empleados[cuilKey]) {
+          porEstab[key].empleados[cuilKey] = {
+            empleado: st.empleado || 'Sin Nombre',
+            cuil: st.cuil || '',
+            estudios: []
+          };
+        }
+        if (porEstab[key].empleados[cuilKey].estudios.indexOf(st.estudio) === -1) {
+          porEstab[key].empleados[cuilKey].estudios.push(st.estudio);
+        }
+      });
+
+      for (var k in porEstab) {
+        var estObj = porEstab[k];
+        var srtTxt = estObj.srt ? ' (Código SRT: ' + estObj.srt + ')' : '';
+        lineas.push('Establecimiento: ' + estObj.establecimiento + srtTxt);
+
+        for (var cKey in estObj.empleados) {
+          var empObj = estObj.empleados[cKey];
+          var cuilTxt = empObj.cuil ? ' (CUIL: ' + empObj.cuil + ')' : '';
+          lineas.push('  - ' + empObj.empleado + cuilTxt + ': ' + empObj.estudios.join(', '));
+        }
+        lineas.push('');
+      }
+
+      lineas.push('Quedamos a la espera.');
+      lineas.push('Saludos cordiales.');
+
+      var textoFinal = lineas.join('\n');
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textoFinal).then(function() {
+          toast('✓ Reclamo copiado al portapapeles para ' + grp.nombre, 'ok', 4000);
+        }).catch(function() {
+          copiarFallback(textoFinal, grp.nombre);
+        });
+      } else {
+        copiarFallback(textoFinal, grp.nombre);
+      }
+    }
+
+    function copiarFallback(texto, nombrePrestador) {
+      var ta = document.createElement('textarea');
+      ta.value = texto;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        toast('✓ Reclamo copiado al portapapeles para ' + nombrePrestador, 'ok', 4000);
+      } catch (err) {
+        toast('No se pudo copiar automáticamente', 'warn');
+      }
+      document.body.removeChild(ta);
+    }
+  </script>
+</body>
+</html>

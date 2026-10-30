@@ -1,0 +1,1075 @@
+<script>
+let baseDatosOriginal = [];
+let filasModificadas  = new Map();
+let ultimoCUIL        = null;
+let urlMadre          = '<?= urlMadre ?>';
+let vinculaciones     = [];
+
+// ==================================================================
+// INFINITE SCROLL
+// ==================================================================
+const BATCH_SIZE      = 50;   // filas por lote
+let _datosFiltrados_  = [];   // resultado completo del filtro
+let _filasCargadas_   = 0;    // cuántas filas ya están en el DOM
+let _scrollListener_  = null; // referencia al listener activo
+
+// [2026-09-06] Opciones de resultado con Desistido
+const OPCIONES_RESULTADO = [
+  "Normal Laboral", "Pendiente de Confirmación", "Desvío",
+  "Ausente/Sin realizar", "Enfermedad Profesional", "Práctica defectuosa", "Desistido"
+];
+
+function toast(msg, tipo = 'info', duracion = null) {
+  if (duracion === null) {
+    duracion = (tipo === 'error' || tipo === 'err' || tipo === 'danger') ? 20000 : 3500;
+  }
+  const c  = document.getElementById('toastContainer');
+  if (!c) return;
+  const el = document.createElement('div');
+  el.className   = `toast-msg toast-${tipo}`;
+  if (tipo === 'error' || tipo === 'err' || tipo === 'danger') {
+    el.style.cursor = 'pointer';
+    el.title = 'Haz clic para cerrar este mensaje';
+    el.innerHTML = `<strong>⚠️ Error:</strong> ${msg} <span style="margin-left:10px; font-weight:bold; opacity:0.8;">✕</span>`;
+    console.error('[Toast Error]', msg);
+  } else {
+    el.textContent = msg;
+  }
+  el.onclick = () => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 200);
+  };
+  c.appendChild(el);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+  setTimeout(() => {
+    if (el.parentNode) {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 300);
+    }
+  }, duracion);
+}
+
+// ==================================================================
+// FILTROS
+// ==================================================================
+function toggleFiltros() {
+  const content = document.getElementById('filtrosContent');
+  const chevron = document.getElementById('filtrosChevron');
+  content.classList.toggle('collapsed');
+  content.classList.toggle('expanded');
+  chevron.style.transform = content.classList.contains('expanded') ? 'rotate(0deg)' : 'rotate(-180deg)';
+}
+
+let _filtroTimer = null;
+function solicitarFiltro() {
+  if (filasModificadas.size > 0) { document.getElementById('pendingBanner').style.display = 'flex'; return; }
+  clearTimeout(_filtroTimer);
+  _filtroTimer = setTimeout(filtrarLocamente, 250);
+}
+
+function limpiarFiltros() {
+  if (filasModificadas.size > 0 && !confirm("¿Descartar cambios?")) return;
+  filasModificadas.clear();
+  actualizarBotonFlotante();
+  document.getElementById('pendingBanner').style.display = 'none';
+  document.querySelectorAll('input[type="text"], select').forEach(el => el.value = '');
+  filtrarLocamente();
+}
+
+function descartarCambiosYFiltrar() {
+  filasModificadas.clear();
+  actualizarBotonFlotante();
+  document.getElementById('pendingBanner').style.display = 'none';
+  filtrarLocamente();
+}
+
+// Detección de inconsistencias entre Asistencia, Resultados y Adjuntos
+function _detectarInconsistenciaFila_(row) {
+  if (!row) return null;
+  const estudio = String(row.Estudio_a_Realizar || '');
+  if (estudio.includes("No posee")) return null;
+
+  const asist = String(row.Asistencia || '').toUpperCase().trim();
+  const res   = String(row.Resultado || '').trim();
+  const obs   = String(row.Observación || '').trim();
+  const tieneAdj = !!(row.Adjunto1 || row.Adjunto2);
+
+  const resNorm = res.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const esAusenteAsis = asist.includes('AUSENTE');
+  const esAusenteRes  = resNorm.includes('ausente');
+
+  // 1. Asistencia AUSENTE pero con Resultado clínico cargado (no ausente)
+  if (esAusenteAsis && res !== '' && !esAusenteRes) {
+    return `Asistencia AUSENTE pero con resultado clínico ("${res}")`;
+  }
+  // 2. Resultado Ausente pero Asistencia es PRESENTE
+  if (esAusenteRes && asist.includes('PRESENTE')) {
+    return 'Resultado marcado Ausente pero Asistencia figura PRESENTE';
+  }
+  // 3. Ausente pero con archivos adjuntos cargados
+  if ((esAusenteAsis || esAusenteRes) && tieneAdj) {
+    return 'Marcado Ausente pero contiene archivos adjuntos cargados';
+  }
+  // 4. Desistido sin motivo obligatorio en observación
+  if (res === 'Desistido' && !obs) {
+    return 'Resultado Desistido sin motivo en Observación';
+  }
+  // 5. Resultado clínico cargado pero Asistencia vacía
+  if (res !== '' && !esAusenteRes && !asist) {
+    return 'Resultado cargado pero la Asistencia está vacía';
+  }
+  // 6. Resultado clínico cargado pero sin ningún archivo adjunto
+  if (res !== '' && !esAusenteRes && !tieneAdj) {
+    return 'Estudio auditado pero sin archivo adjunto cargado';
+  }
+
+  return null;
+}
+
+function actualizarOrganos() {
+  const contrato = document.getElementById('f_contrato').value.toLowerCase().trim();
+  const selOrg   = document.getElementById('f_org');
+  selOrg.innerHTML = '<option value="">Organismo</option>';
+  if (!contrato) {
+    document.getElementById('f_srt').value = '';
+    document.getElementById('f_establecimiento').value = '';
+    solicitarFiltro();
+    return;
+  }
+  const organismos = new Set();
+  vinculaciones.filter(v => v.contrato.toLowerCase() === contrato).forEach(v => organismos.add(v.organismo));
+  Array.from(organismos).sort().forEach(org => selOrg.innerHTML += `<option value="${org}">${org}</option>`);
+  solicitarFiltro();
+}
+
+function actualizarSRT() {
+  const contrato  = document.getElementById('f_contrato').value.toLowerCase().trim();
+  const organismo = document.getElementById('f_org').value.toLowerCase().trim();
+  document.getElementById('f_srt').value = '';
+  document.getElementById('f_establecimiento').value = '';
+  if (!contrato || !organismo) { solicitarFiltro(); return; }
+  const srts = new Set();
+  vinculaciones
+    .filter(v => v.contrato.toLowerCase() === contrato && v.organismo.toLowerCase() === organismo)
+    .forEach(v => srts.add(v.srt));
+  if (srts.size === 1) document.getElementById('f_srt').value = Array.from(srts)[0];
+  solicitarFiltro();
+}
+
+function _getFiltros_() {
+  return {
+    contrato: document.getElementById('f_contrato').value.toLowerCase().trim(),
+    org:      document.getElementById('f_org').value.toLowerCase().trim(),
+    srt:      document.getElementById('f_srt').value.toLowerCase().trim(),
+    estab:    document.getElementById('f_establecimiento').value.toLowerCase().trim(),
+    cuil:     document.getElementById('f_cuil').value.toLowerCase().trim(),
+    nom:      document.getElementById('f_nombre').value.toLowerCase().trim(),
+    est:      document.getElementById('f_estudio').value.toLowerCase().trim(),
+    asis:     document.getElementById('f_asistencia').value.toLowerCase().trim(),
+    est_res:  document.getElementById('f_estado_res').value,
+    f_deriv:  document.getElementById('f_fecha_deriv').value.trim(),
+    com:      document.getElementById('f_comunicacion').value.trim(),
+    adjuntos: document.getElementById('f_adjuntos').value.trim(),
+    accion:   document.getElementById('f_accion').value.trim()
+  };
+}
+
+function _aplicarFiltro_(row, f) {
+  if (String(row.Estudio_a_Realizar || '').includes("No posee")) return false;
+  if (f.asis    && !String(row.Asistencia || '').toLowerCase().includes(f.asis)) return false;
+  if (f.est_res === 'con_resultado' && row.Resultado === "")       return false;
+  if (f.est_res === 'sin_resultado' && row.Resultado !== "")       return false;
+  if (f.f_deriv && row.Fecha_Derivacion !== f.f_deriv)             return false;
+  if (f.contrato && !`${row.Contrato || ''} ${row.Nombre_Contrato || ''} ${row.Nombre_Organismo || ''}`.toLowerCase().includes(f.contrato)) return false;
+  if (f.org      && !String(row.Nombre_Organismo || '').toLowerCase().includes(f.org))         return false;
+  if (f.srt      && !String(row.Codigo_SRT || '').toLowerCase().includes(f.srt))               return false;
+  if (f.estab    && !String(row.Establecimiento || '').toLowerCase().includes(f.estab))        return false;
+  if (f.cuil     && !String(row.CUIL_Empleado || row.CUIL_Original || '').toLowerCase().includes(f.cuil)) return false;
+  if (f.nom      && !String(row.Apellido_y_Nombre || '').toLowerCase().includes(f.nom))        return false;
+  if (f.est      && !String(row.Estudio_a_Realizar || '').toLowerCase().includes(f.est))       return false;
+  if (f.com === 'con_comunicacion' && !row.Comunicacion)           return false;
+  if (f.com === 'sin_comunicacion' &&  row.Comunicacion)           return false;
+  const tieneAdj = !!(row.Adjunto1 || row.Adjunto2);
+  if (f.adjuntos === 'con_adjunto' && !tieneAdj) return false;
+  if (f.adjuntos === 'sin_adjunto' &&  tieneAdj) return false;
+  const tieneRes = row.Resultado !== '';
+  if (f.accion === 'pendiente_auditar'   && !(tieneAdj && !tieneRes))         return false;
+  if (f.accion === 'pendiente_comunicar' && !(tieneRes && !row.Comunicacion)) return false;
+  if (f.accion === 'inconsistente'       && !_detectarInconsistenciaFila_(row)) return false;
+  return true;
+}
+
+function filtrarLocamente() {
+  filasModificadas.clear();
+  actualizarBotonFlotante();
+  document.getElementById('pendingBanner').style.display = 'none';
+
+  const f = _getFiltros_();
+  const hayFiltro = Object.values(f).some(v => v);
+
+  if (!hayFiltro) {
+    document.getElementById('tablaBody').innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:var(--color-text-secondary); font-size:0.65rem;"><i class="bi bi-funnel"></i> Aplicar filtros</td></tr>';
+    document.getElementById('panelMasivo').style.display = 'none';
+    document.getElementById('indicadoresPanel').style.display = 'none';
+    _desactivarScroll_();
+    return;
+  }
+
+  _datosFiltrados_ = baseDatosOriginal.filter(row => _aplicarFiltro_(row, f));
+
+  if (_datosFiltrados_.length === 0) {
+    document.getElementById('tablaBody').innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:var(--color-text-secondary); font-size:0.65rem;"><i class="bi bi-inbox"></i> Sin resultados</td></tr>';
+    document.getElementById('panelMasivo').style.display = 'none';
+    document.getElementById('indicadoresPanel').style.display = 'none';
+    _desactivarScroll_();
+    return;
+  }
+
+  // Reiniciar estado de scroll
+  _filasCargadas_ = 0;
+  ultimoCUIL      = null;
+  const body = document.getElementById('tablaBody');
+  body.innerHTML  = '';
+  document.getElementById('checkAll').checked = false;
+  document.getElementById('panelMasivo').style.display = 'block';
+
+  // Indicadores sobre el TOTAL filtrado (no solo lo renderizado)
+  _actualizarIndicadores_(_datosFiltrados_);
+
+  // Renderizar primer lote
+  _cargarSiguienteLote_();
+
+  // Activar infinite scroll
+  _activarScroll_();
+}
+
+// ==================================================================
+// INDICADORES
+// ==================================================================
+function _actualizarIndicadores_(lista) {
+  const panel = document.getElementById('indicadoresPanel');
+  if (!lista || lista.length === 0) { panel.style.display = 'none'; return; }
+  const cuilesUnicos  = new Set(lista.map(r => r.CUIL_Empleado || r.CUIL_Original)).size;
+  const pendAuditar   = lista.filter(r => (r.Adjunto1 || r.Adjunto2) && r.Resultado === '').length;
+  const pendComunicar = lista.filter(r => r.Resultado !== '' && !r.Comunicacion).length;
+  document.getElementById('indCuiles').textContent        = cuilesUnicos.toLocaleString();
+  document.getElementById('indEstudios').textContent      = lista.length.toLocaleString();
+  document.getElementById('indAuditar').textContent       = pendAuditar.toLocaleString();
+  document.getElementById('indComunicar').textContent     = pendComunicar.toLocaleString();
+  document.getElementById('indSeleccionados').textContent = '0';
+  panel.style.display = 'flex';
+}
+
+function _onCheckChange_() {
+  const sel = document.querySelectorAll('.fila-check:checked').length;
+  const el  = document.getElementById('indSeleccionados');
+  if (el) el.textContent = sel.toLocaleString();
+}
+
+// ==================================================================
+// INFINITE SCROLL — helpers
+// ==================================================================
+function _cargarSiguienteLote_() {
+  const body  = document.getElementById('tablaBody');
+  const hasta = Math.min(_filasCargadas_ + BATCH_SIZE, _datosFiltrados_.length);
+  const frag  = document.createDocumentFragment();
+
+  for (let i = _filasCargadas_; i < hasta; i++) {
+    frag.appendChild(_crearFila_(_datosFiltrados_[i]));
+  }
+  body.appendChild(frag);
+  _filasCargadas_ = hasta;
+
+  // Si ya cargamos todo, desactivar listener
+  if (_filasCargadas_ >= _datosFiltrados_.length) _desactivarScroll_();
+}
+
+function _activarScroll_() {
+  _desactivarScroll_(); // evitar duplicados
+  const contenedor = document.querySelector('.table-responsive');
+  if (!contenedor) return;
+  _scrollListener_ = () => {
+    if (contenedor.scrollTop + contenedor.clientHeight >= contenedor.scrollHeight - 80) {
+      _cargarSiguienteLote_();
+    }
+  };
+  contenedor.addEventListener('scroll', _scrollListener_, { passive: true });
+}
+
+function _desactivarScroll_() {
+  const contenedor = document.querySelector('.table-responsive');
+  if (contenedor && _scrollListener_) {
+    contenedor.removeEventListener('scroll', _scrollListener_);
+  }
+  _scrollListener_ = null;
+}
+
+// ==================================================================
+// TABLA
+// ==================================================================
+function renderTabla(lista) {
+  // Mantener compatibilidad con llamadas directas (ej: post-sync)
+  _datosFiltrados_ = lista;
+  _filasCargadas_  = 0;
+  ultimoCUIL       = null;
+  const body = document.getElementById('tablaBody');
+  body.innerHTML   = '';
+  document.getElementById('checkAll').checked = false;
+  document.getElementById('panelMasivo').style.display = 'block';
+
+  _actualizarIndicadores_(lista);
+  _cargarSiguienteLote_();
+  _activarScroll_();
+}
+
+function _crearFila_(row) {
+  const resFinal   = row.Resultado || "";
+  const editClass  = filasModificadas.has(row.rowIndex) ? "fila-modificada" : "";
+  const claseColor = _claseColorResultado_(resFinal);
+  const optsHTML   = _buildOpcionesResultado_(resFinal);
+  const fEstudio   = filasModificadas.has(row.rowIndex) ? filasModificadas.get(row.rowIndex).fechaEstudio : (normalizarFecha(row.Fecha_Estudio) || "");
+  const isChecked  = filasModificadas.has(row.rowIndex) ? "checked" : "";
+  const cuilFila   = row.CUIL_Empleado || row.CUIL_Original || '-';
+  const srtFila    = row.Codigo_SRT || row.Codigo_SRT_Original || '-';
+  const esPrimero  = ultimoCUIL !== cuilFila;
+  if (esPrimero) ultimoCUIL = cuilFila;
+
+  const tieneCom      = !!row.Comunicacion;
+  const tieneAdj      = !!(row.Adjunto1 || row.Adjunto2);
+  const tieneRes      = resFinal !== '';
+  const incMotivo     = _detectarInconsistenciaFila_(row);
+  const pendAuditar   = tieneAdj && !tieneRes;
+  const pendComunicar = tieneRes && !tieneCom;
+  const badgeAccion   = incMotivo
+    ? `<div title="${incMotivo}" style="font-size:0.52rem;margin-top:2px;color:#ef4444;font-weight:700;letter-spacing:0.3px;cursor:help;"><i class="bi bi-exclamation-triangle-fill"></i> REVISAR</div>`
+    : pendAuditar
+    ? `<div style="font-size:0.52rem;margin-top:2px;color:#f59e0b;font-weight:700;letter-spacing:0.3px;">⚠ AUDITAR</div>`
+    : pendComunicar
+    ? `<div style="font-size:0.52rem;margin-top:2px;color:#3b82f6;font-weight:700;letter-spacing:0.3px;">📤 COMUNICAR</div>`
+    : '';
+  const iconoCom = tieneCom
+    ? `<span title="Comunicado: ${row.Comunicacion}" style="display:inline-flex; align-items:center; color:#2e7d32;">
+         <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+           <circle cx="8" cy="8" r="7.5" stroke="#2e7d32" stroke-width="1"/>
+           <path d="M4.5 8.5l2.5 2.5 4.5-5" stroke="#2e7d32" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+         </svg>
+       </span>`
+    : `<span title="Sin comunicación" style="display:inline-flex; align-items:center; color:#bdbdbd;">
+         <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+           <circle cx="8" cy="8" r="7.5" stroke="#bdbdbd" stroke-width="1"/>
+           <path d="M5.5 10.5l5-5M10.5 10.5l-5-5" stroke="#bdbdbd" stroke-width="1.5" stroke-linecap="round"/>
+         </svg>
+       </span>`;
+
+  const tr = document.createElement('tr');
+  tr.id        = `fila_${row.rowIndex}`;
+  tr.className = `${editClass} ${esPrimero ? 'fila-grupo-new' : ''}`;
+  tr.innerHTML = `
+    <td><input type="checkbox" class="form-check-input fila-check" value="${row.rowIndex}" ${isChecked} onchange="_onCheckChange_()"></td>
+    <td style="font-weight:600;">${cuilFila}${badgeAccion}</td>
+    <td>${srtFila}</td>
+    <td>
+      <a class="empleado-link" href="${urlMadre}#gid=0" target="_blank">
+        <div style="font-weight:600; font-size:0.72rem;">${row.Apellido_y_Nombre || '-'}</div>
+      </a>
+      <div style="font-size:0.65rem; color:var(--color-text-secondary); display:flex; align-items:center; gap:4px;">
+        <span>${row.Establecimiento}</span>
+        <!-- [2026-09-06] Icono para acceder a la carpeta del establecimiento en Drive -->
+        <button class="btn-icon" style="width:16px; height:16px; font-size:0.75rem; color:var(--color-primary); cursor:pointer;"
+          onclick="abrirCarpetaEstablecimiento('${row.Contrato}', '${row.Nombre_Contrato}', '${srtFila}', '${row.Establecimiento}', this)"
+          title="Abrir carpeta del establecimiento en Drive (si existe)">
+          <i class="bi bi-folder2-open"></i>
+        </button>
+      </div>
+    </td>
+    <td style="font-size:0.72rem;">${row.Estudio_a_Realizar || '-'}</td>
+    <td style="text-align:center;">
+      <input type="text" class="form-control form-control-sm" style="text-align:center; font-weight:600; font-size:0.6rem;"
+        id="fechaEstudio_${row.rowIndex}" value="${fEstudio}" placeholder="dd/MM/yyyy" maxlength="10"
+        oninput="validarFechaInput(this); marcarComoModificado(${row.rowIndex})">
+    </td>
+    <td>
+      <select class="form-select form-select-sm ${claseColor}" id="res_${row.rowIndex}"
+        onchange="cambiarColorSelect(this, ${row.rowIndex})" style="font-size:0.7rem;">${optsHTML}</select>
+      <div id="fecha_${row.rowIndex}" style="font-size:0.55rem; color:var(--color-text-secondary); margin-top:2px;">${row.Fecha_Auditoria}</div>
+    </td>
+    <td>
+      <input type="text" class="form-control form-control-sm ${resFinal === 'Desistido' && !row.Observación ? 'input-error' : ''}" id="obs_${row.rowIndex}"
+        placeholder="${resFinal === 'Desistido' ? 'Motivo desistimiento (OBLIGATORIO)...' : '...'}" oninput="marcarComoModificado(${row.rowIndex})"
+        value="${row.Observación || ''}" style="font-size:0.7rem;">
+    </td>
+    <td style="text-align:center;">${iconoCom}</td>
+    <td style="text-align:center;">${_buildAdjuntos_(row)}</td>
+    <td style="text-align:center;">
+      ${(row.Guardado && (row.Guardado.toUpperCase() === 'SÍ' || row.Guardado.toUpperCase() === 'SI' || row.Guardado.toUpperCase() === 'S'))
+        ? `<span id="al_${row.rowIndex}" title="AL: Guardado / Archivado" style="color:#10b981; font-size:0.85rem;"><i class="bi bi-check-circle-fill"></i></span>`
+        : `<span id="al_${row.rowIndex}" title="AL: No guardado aún" style="color:#cbd5e1; font-size:0.85rem;"><i class="bi bi-dash-circle"></i></span>`}
+    </td>
+    <td style="text-align:center;">
+      ${row.Link_Carpeta 
+        ? `<a id="am_${row.rowIndex}" href="${row.Link_Carpeta}" target="_blank" class="btn-icon" style="color:#3b82f6; font-size:0.85rem;" title="AM: Abrir carpeta en Drive"><i class="bi bi-folder-symlink-fill"></i></a>`
+        : `<span id="am_${row.rowIndex}" title="AM: Sin carpeta vinculada" style="color:#cbd5e1; font-size:0.85rem;"><i class="bi bi-folder-x"></i></span>`}
+    </td>
+    <td style="text-align:center;">
+      <button class="btn btn-icon" style="color:#c62828;" onclick="borrarFila(${row.rowIndex}, this)" title="Borrar">
+        <i class="bi bi-trash3"></i>
+      </button>
+    </td>`;
+  return tr;
+}
+
+function _claseColorResultado_(val) {
+  if (val === "Normal Laboral")            return "state-normal";
+  if (val === "Pendiente de Confirmación") return "state-pendiente";
+  if (val === "Desvío")                    return "state-desvio";
+  if (val === "Ausente/Sin realizar" || val === "Ausente" || val === "Enfermedad Profesional") return "state-ausente";
+  if (val === "Práctica defectuosa")       return "state-defecto";
+  if (val === "Desistido")                 return "state-desistido";
+  return "";
+}
+
+function _buildOpcionesResultado_(actual) {
+  let html = '<option value="">-</option>';
+  OPCIONES_RESULTADO.forEach(opt => {
+    // [2026-09-06] Soporte para registros anteriores guardados como "Ausente"
+    const selected = (opt === actual || (opt === "Ausente/Sin realizar" && actual === "Ausente")) ? "selected" : "";
+    html += `<option value="${opt}" ${selected}>${opt}</option>`;
+  });
+  return html;
+}
+
+// [2026-09-06] Normalizar enlaces de Drive y limpiar parámetros conflictivos
+function _formatearLinkDrive_(url) {
+  if (!url) return '';
+  const str = String(url).trim();
+  const match = str.match(/\/d\/([-\w]{25,})/);
+  if (match && match[1]) {
+    return `https://drive.google.com/file/d/${match[1]}/view`;
+  }
+  return str;
+}
+
+function _buildAdjuntos_(row) {
+  let html = '<div class="adjuntos-cell">';
+  if (row.Adjunto1) html += `<a class="btn-icon" href="${_formatearLinkDrive_(row.Adjunto1)}" target="_blank" rel="noopener noreferrer" title="Ver adjunto 1"><i class="bi bi-paperclip"></i></a>`;
+  if (row.Adjunto2) html += `<a class="btn-icon" href="${_formatearLinkDrive_(row.Adjunto2)}" target="_blank" rel="noopener noreferrer" title="Ver adjunto 2"><i class="bi bi-paperclip"></i></a>`;
+  return html + '</div>';
+}
+
+// ==================================================================
+// ESTADO DE MODIFICACIONES
+// ==================================================================
+function cambiarColorSelect(selectEl, idx, limpiarObs = false) {
+  selectEl.className = 'form-select form-select-sm';
+  const val   = selectEl.value;
+  const clase = _claseColorResultado_(val);
+  if (clase) selectEl.classList.add(clase);
+  // Campo observación siempre habilitado para todos los resultados (incluido Normal Laboral)
+  const obsEl = document.getElementById(`obs_${idx}`);
+  if (obsEl) {
+    obsEl.disabled = false;
+    if (val === "Desistido") {
+      obsEl.placeholder = "Motivo desistimiento (OBLIGATORIO)...";
+      if (!obsEl.value.trim()) {
+        obsEl.classList.add('input-error');
+        obsEl.focus();
+      }
+    } else {
+      obsEl.placeholder = "...";
+      obsEl.classList.remove('input-error');
+    }
+  }
+  marcarComoModificado(idx);
+}
+
+function marcarComoModificado(idx) {
+  const resEl = document.getElementById(`res_${idx}`);
+  const obsEl = document.getElementById(`obs_${idx}`);
+  const valRes = resEl ? resEl.value : '';
+  const valObs = obsEl ? obsEl.value : '';
+
+  if (obsEl && valRes === "Desistido") {
+    if (!valObs.trim()) {
+      obsEl.classList.add('input-error');
+    } else {
+      obsEl.classList.remove('input-error');
+    }
+  }
+
+  filasModificadas.set(idx, {
+    idx,
+    res:          valRes,
+    obs:          valObs,
+    fechaEstudio: document.getElementById(`fechaEstudio_${idx}`).value
+  });
+  document.getElementById(`fila_${idx}`).classList.add('fila-modificada');
+  const chk = document.querySelector(`#fila_${idx} .fila-check`);
+  if (chk) chk.checked = true;
+  actualizarBotonFlotante();
+  _onCheckChange_();
+}
+
+function actualizarBotonFlotante() {
+  const n    = filasModificadas.size;
+  const btnF = document.getElementById('btnGuardarTodos');
+  const btnT = document.getElementById('btnGuardarTop');
+  if (n > 0) {
+    btnF.style.display = 'block';
+    document.getElementById('contadorCambios').innerText = n;
+    btnT.disabled  = false;
+    btnT.innerHTML = `<i class="bi bi-floppy-fill"></i> Guardar (${n})`;
+  } else {
+    btnF.style.display = 'none';
+    btnT.disabled  = true;
+    btnT.innerHTML = `<i class="bi bi-floppy-fill"></i> Guardar (0)`;
+  }
+}
+
+// ==================================================================
+// ACCIONES MASIVAS
+// ==================================================================
+function toggleTodos(chkAll) {
+  document.querySelectorAll('.fila-check').forEach(chk => chk.checked = chkAll.checked);
+  _onCheckChange_();
+}
+
+function toggleMasivoObs(selectEl) {
+  const obs = document.getElementById('masivo_obs');
+  if (obs) {
+    obs.disabled = false;
+    if (selectEl.value === 'Desistido') {
+      obs.placeholder = 'Motivo desistimiento (OBLIGATORIO)...';
+      if (!obs.value.trim()) obs.classList.add('input-error');
+      obs.focus();
+    } else {
+      obs.placeholder = 'Obs...';
+      obs.classList.remove('input-error');
+    }
+  }
+}
+
+function aplicarMasivo() {
+  const seleccionados = document.querySelectorAll('.fila-check:checked');
+  if (seleccionados.length === 0) { toast("Selecciona filas", 'warning'); return; }
+  const resMasivo   = document.getElementById('masivo_res').value;
+  const obsMasivo   = document.getElementById('masivo_obs').value;
+  const fechaMasiva = normalizarFecha(convertirDateADdMmYyyy(document.getElementById('masivo_fecha').value));
+  if (!resMasivo) { toast("Selecciona resultado", 'warning'); return; }
+  if (resMasivo === "Desistido" && (!obsMasivo || !obsMasivo.trim())) {
+    toast("Para resultado Desistido, la observación es OBLIGATORIA (completar motivo en 'Obs')", 'warning', 5500);
+    const mObs = document.getElementById('masivo_obs');
+    if (mObs) { mObs.classList.add('input-error'); mObs.focus(); }
+    return;
+  }
+  seleccionados.forEach(chk => {
+    const idx = parseInt(chk.value);
+    document.getElementById(`res_${idx}`).value = resMasivo;
+    if (fechaMasiva) document.getElementById(`fechaEstudio_${idx}`).value = fechaMasiva;
+    cambiarColorSelect(document.getElementById(`res_${idx}`), idx, false);
+    if (!document.getElementById(`obs_${idx}`).disabled && obsMasivo) document.getElementById(`obs_${idx}`).value = obsMasivo;
+    marcarComoModificado(idx);
+    chk.checked = false;
+  });
+  document.getElementById('checkAll').checked = false;
+  _onCheckChange_();
+  toast(`${seleccionados.length} fila(s) preparadas. Hacé clic en "Guardar (${filasModificadas.size})" para confirmar.`, 'info', 4500);
+}
+
+// ==================================================================
+// GUARDAR Y BORRAR
+// ==================================================================
+function guardarCambiosMasivos() {
+  const arrayCambios = Array.from(filasModificadas.values());
+  if (arrayCambios.length === 0) return;
+
+  for (const c of arrayCambios) {
+    if (!c.res) { toast("Faltan resultados", 'warning'); return; }
+    if (c.res === "Desistido" && (!c.obs || !c.obs.trim())) {
+      toast(`Fila #${c.idx}: La observación es OBLIGATORIA para estudios Desistidos`, 'error', 5500);
+      const obsEl = document.getElementById(`obs_${c.idx}`);
+      if (obsEl) {
+        obsEl.classList.add('input-error');
+        obsEl.focus();
+      }
+      return;
+    }
+    c.fechaEstudio = normalizarFecha(c.fechaEstudio);
+    if (c.fechaEstudio && !/^\d{2}\/\d{2}\/\d{4}$/.test(c.fechaEstudio)) {
+      toast(`Fecha inválida: "${c.fechaEstudio}" (usar DD/MM/AAAA)`, 'error', 4000);
+      return;
+    }
+  }
+
+  if (!confirm(`¿Guardar ${arrayCambios.length} cambio(s)?`)) return;
+  const btnF = document.getElementById('btnGuardarTodos');
+  const btnT = document.getElementById('btnGuardarTop');
+  btnT.innerHTML = `<i class="bi bi-hourglass-split"></i> Guardando...`;
+  btnF.innerHTML = `<i class="bi bi-hourglass-split"></i>`;
+  btnF.disabled  = btnT.disabled = true;
+  google.script.run
+    .withSuccessHandler(res => {
+      btnF.disabled = btnT.disabled = false;
+      actualizarBotonFlotante();
+      if (res.status === "OK") {
+        arrayCambios.forEach(c => {
+          // Actualizar memoria cliente para que los filtros no reviertan el valor
+          const item = baseDatosOriginal.find(r => r.rowIndex === c.idx);
+          if (item) {
+            item.Resultado       = c.res;
+            item.Observación     = c.obs;
+            item.Fecha_Estudio   = c.fechaEstudio;
+            item.Fecha_Auditoria = res.fecha;
+            if (c.res && c.res.toLowerCase().includes('ausente')) {
+              item.Adjunto1 = '';
+              item.Adjunto2 = '';
+              item.Guardado = 'NO';
+              item.Link_Carpeta = '';
+            }
+          }
+          const fEl = document.getElementById(`fila_${c.idx}`);
+          if (fEl) fEl.classList.remove('fila-modificada');
+          const dEl = document.getElementById(`fecha_${c.idx}`);
+          if (dEl) dEl.innerText = res.fecha;
+          const chk = document.querySelector(`#fila_${c.idx} .fila-check`);
+          if (chk) chk.checked = false;
+          if (c.res && c.res.toLowerCase().includes('ausente')) {
+            const alEl = document.getElementById(`al_${c.idx}`);
+            if (alEl) alEl.outerHTML = `<span id="al_${c.idx}" title="AL: No guardado aún" style="color:#cbd5e1; font-size:0.85rem;"><i class="bi bi-dash-circle"></i></span>`;
+            const amEl = document.getElementById(`am_${c.idx}`);
+            if (amEl) amEl.outerHTML = `<span id="am_${c.idx}" title="AM: Sin carpeta vinculada" style="color:#cbd5e1; font-size:0.85rem;"><i class="bi bi-folder-x"></i></span>`;
+          }
+        });
+        filasModificadas.clear();
+        actualizarBotonFlotante();
+        _onCheckChange_();
+        toast(`✓ ${arrayCambios.length} estudio(s) guardado(s) en planilla`, 'success', 3500);
+        setTimeout(() => {
+          toast("💡 Recordá sincronizar con el Madre en el módulo Empleados", 'info', 5000);
+        }, 2200);
+
+        // Si hay legajos pendientes de archivar PDF, lanzar en segundo plano desacoplado
+        if (res.pendientesArchivar && res.pendientesArchivar.length > 0) {
+          archivarPendientesDrive(res.pendientesArchivar);
+        }
+      } else {
+        toast("Error: " + res.msg, 'error', 5000);
+      }
+    })
+    .withFailureHandler(err => {
+      toast("Error de conexión: " + (err ? err.message : ""), 'error', 5000);
+      btnF.disabled = btnT.disabled = false;
+      actualizarBotonFlotante();
+    })
+    .guardarMultiples(arrayCambios);
+}
+
+function archivarPendientesDrive(listaEmpleados) {
+  if (!listaEmpleados || listaEmpleados.length === 0) return;
+  const total = listaEmpleados.length;
+  let procesados = 0;
+  const chunkSize = 3;
+  const chunks = [];
+  for (let i = 0; i < total; i += chunkSize) {
+    chunks.push(listaEmpleados.slice(i, i + chunkSize));
+  }
+
+  toast(`Archivando ${total} legajo(s) en Google Drive...`, 'info', 4000);
+
+  let fallidos = 0;
+
+  function procesarSiguienteLote(indiceChunk) {
+    if (indiceChunk >= chunks.length) {
+      if (fallidos === 0) {
+        toast(`✓ ${procesados} legajo(s) archivado(s) en Drive correctamente`, 'success', 5000);
+      } else {
+        toast(`Archivado: ${procesados} guardados en Drive, ${fallidos} con aviso. Podés revisar el detalle en Empleados.`, 'warning', 7000);
+      }
+      return;
+    }
+    const loteActual = chunks[indiceChunk];
+    google.script.run
+      .withSuccessHandler(resArch => {
+        if (resArch && resArch.status === "OK" && Array.isArray(resArch.resultados)) {
+          resArch.resultados.forEach(r => {
+            if (r.status === "OK") {
+              procesados++;
+              if (Array.isArray(r.filas)) {
+                r.filas.forEach(idx => {
+                  const item = baseDatosOriginal.find(it => it.rowIndex === idx);
+                  if (item) {
+                    item.Guardado = "SÍ";
+                    item.Link_Carpeta = r.urlCarpeta;
+                  }
+                  const alEl = document.getElementById(`al_${idx}`);
+                  if (alEl) {
+                    alEl.outerHTML = `<span id="al_${idx}" title="AL: Guardado / Archivado" style="color:#10b981; font-size:0.85rem;"><i class="bi bi-check-circle-fill"></i></span>`;
+                  }
+                  const amEl = document.getElementById(`am_${idx}`);
+                  if (amEl) {
+                    amEl.outerHTML = `<a id="am_${idx}" href="${r.urlCarpeta}" target="_blank" class="btn-icon" style="color:#3b82f6; font-size:0.85rem;" title="AM: Abrir carpeta en Drive"><i class="bi bi-folder-symlink-fill"></i></a>`;
+                  }
+                });
+              }
+            } else {
+              fallidos++;
+              console.error(`Fallo archivando en Drive empleado ${r.cuil}:`, r.msg);
+            }
+          });
+          toast(`Archivando en Drive: ${procesados} de ${total}...`, 'info', 2500);
+        } else {
+          fallidos += loteActual.length;
+        }
+        procesarSiguienteLote(indiceChunk + 1);
+      })
+      .withFailureHandler(errArch => {
+        console.error("Error archivando lote en Drive:", errArch);
+        fallidos += loteActual.length;
+        toast(`Aviso: Hubo un retraso archivando legajos en Drive. Podés reintentar desde Empleados.`, 'warning', 5000);
+        procesarSiguienteLote(indiceChunk + 1);
+      })
+      .archivarLotePDFs(loteActual);
+  }
+
+  procesarSiguienteLote(0);
+}
+
+function borrarFila(idx, btn) {
+  if (!confirm("¿Borrar registro?")) return;
+  btn.innerHTML = `<i class="bi bi-hourglass-split"></i>`;
+  btn.disabled  = true;
+  google.script.run
+    .withSuccessHandler(res => {
+      if (res === "OK") {
+        // Actualizar memoria cliente
+        const item = baseDatosOriginal.find(r => r.rowIndex === idx);
+        if (item) {
+          item.Resultado       = "";
+          item.Observación     = "";
+          item.Fecha_Estudio   = "";
+          item.Fecha_Auditoria = "";
+        }
+        const feEl = document.getElementById(`fechaEstudio_${idx}`);
+        if (feEl) feEl.value = "";
+        const resEl = document.getElementById(`res_${idx}`);
+        if (resEl) {
+          resEl.value = "";
+          resEl.className = 'form-select form-select-sm';
+        }
+        const obsEl = document.getElementById(`obs_${idx}`);
+        if (obsEl) {
+          obsEl.value = "";
+          obsEl.disabled = true;
+        }
+        const fEl = document.getElementById(`fecha_${idx}`);
+        if (fEl) fEl.innerText = "";
+        filasModificadas.delete(idx);
+        const rowEl = document.getElementById(`fila_${idx}`);
+        if (rowEl) rowEl.classList.remove('fila-modificada');
+        actualizarBotonFlotante();
+        _onCheckChange_();
+        toast("Borrado correctamente", 'success');
+      } else toast("Error al borrar", 'error');
+      btn.innerHTML = `<i class="bi bi-trash3"></i>`; btn.disabled = false;
+    })
+    .withFailureHandler(() => { toast("Error de conexión", 'error'); btn.innerHTML = `<i class="bi bi-trash3"></i>`; btn.disabled = false; })
+    .limpiarRegistroIndividual(idx);
+}
+
+// ==================================================================
+// CARGA INICIAL
+// ==================================================================
+function actualizarLinks() {
+  const btn = document.getElementById('btnActualizarLinks') || 
+              (typeof event !== 'undefined' && event && event.target ? event.target.closest('button') : null) || 
+              document.querySelector('button[onclick*="actualizarLinks"]');
+  if (btn) {
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Actualizando...';
+    btn.disabled  = true;
+  }
+
+  const safetyTimer = setTimeout(() => {
+    if (btn && btn.disabled) {
+      btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Actualizar';
+      btn.disabled = false;
+      toast('El proceso de actualización continúa en la nube. Recarga en unos segundos si es necesario.', 'info', 8000);
+    }
+  }, 25000);
+
+  google.script.run
+    .withSuccessHandler((res) => {
+      clearTimeout(safetyTimer);
+      if (res && res.requiereConfirmacion) {
+        if (btn) {
+          btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Actualizar';
+          btn.disabled = false;
+        }
+        abrirModalConfirmarVacio(res);
+        return;
+      }
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Actualizar';
+        btn.disabled = false;
+      }
+      let detalleSync = 'Sincronización completada correctamente';
+      if (res && res.linksNuevos !== undefined) {
+        detalleSync = `Sync exitosa: +${res.linksNuevos} nuevos, ${res.linksModificados || 0} actualizados, ${res.eliminadosTotal || 0} eliminados`;
+      }
+      if (res && res.inconsistencias > 0) {
+        toast(`${detalleSync} (⚠️ ${res.inconsistencias} con inconsistencias)`, 'warning', 8000);
+      } else {
+        toast(detalleSync, 'success', 6000);
+      }
+      iniciarCargaDatos(1);
+    })
+    .withFailureHandler(err => {
+      clearTimeout(safetyTimer);
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Actualizar';
+        btn.disabled = false;
+      }
+      console.error('Error al actualizar:', err);
+      toast('Error al actualizar: ' + (err.message || err), 'error', 25000);
+    })
+    .sincronizarForzado();
+}
+
+function recargarLinksExterna() {
+  const btn = document.getElementById('btnRecargarLinksExterna');
+  if (btn) {
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Descargando...';
+    btn.disabled = true;
+  }
+  toast('Descargando filas actualizadas desde la planilla externa Gestion_Links hacia Links...', 'info', 10000);
+
+  google.script.run
+    .withSuccessHandler((res) => {
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-cloud-arrow-down-fill"></i> Traer Links Externos';
+        btn.disabled = false;
+      }
+      if (res && res.requiereConfirmacion) {
+        abrirModalConfirmarVacio(res);
+        return;
+      }
+      let detalleSync = 'Pestaña Links y Hoja Madre actualizadas con éxito desde la planilla externa';
+      if (res && res.linksNuevos !== undefined) {
+        detalleSync = `Sync exitosa desde externa: +${res.linksNuevos} nuevos, ${res.linksModificados || 0} actualizados`;
+      }
+      toast(detalleSync, 'success', 7000);
+      iniciarCargaDatos(1);
+    })
+    .withFailureHandler(err => {
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-cloud-arrow-down-fill"></i> Traer Links Externos';
+        btn.disabled = false;
+      }
+      console.error('Error al descargar links:', err);
+      toast('Error al descargar links externos: ' + (err.message || err), 'error', 25000);
+    })
+    .recargarLinksDesdeExterna();
+}
+
+function abrirModalConfirmarVacio(data) {
+  const modal = document.getElementById('modalConfirmarVacio');
+  if (!modal) {
+    if (confirm(`Se detectaron ${data.totalCasos} estudio(s) auditados o guardados cuyos enlaces vienen vacíos en la hoja externa.\n\n¿Desea confirmar el impacto del vacío?\n(Si acepta: se borrará el Resultado, Asistencia y Guardado, se registrará en Bitácora y se renombrará el archivo en Google Drive)`)) {
+      ejecutarSyncConDecision(true);
+    } else {
+      ejecutarSyncConDecision(false);
+    }
+    return;
+  }
+  const lblCant = document.getElementById('lblCantCasosVacio');
+  if (lblCant) lblCant.textContent = data.totalCasos || '0';
+
+  const tbody = document.getElementById('tbodyPreviewCasosVacio');
+  if (tbody) {
+    tbody.innerHTML = '';
+    (data.casos || []).forEach(c => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-family:monospace; font-weight:600;">${c.cuil || ''}</td>
+        <td>${c.empleado || ''}</td>
+        <td>${c.estudio || ''}</td>
+        <td><span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;">${c.resultado || '-'}</span></td>
+        <td><span class="badge ${c.guardado === 'SÍ' ? 'badge-ok' : ''}">${c.guardado || 'NO'}</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+  modal.style.display = 'flex';
+}
+
+function cerrarModalConfirmarVacio() {
+  const modal = document.getElementById('modalConfirmarVacio');
+  if (modal) modal.style.display = 'none';
+  toast('Actualización cancelada.', 'info', 3000);
+}
+
+function ejecutarSyncConDecision(confirmarImpactoVacio) {
+  const modal = document.getElementById('modalConfirmarVacio');
+  if (modal) modal.style.display = 'none';
+
+  const btn = document.querySelector('button[onclick="actualizarLinks()"]');
+  if (btn) {
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Aplicando...';
+    btn.disabled = true;
+  }
+  toast(confirmarImpactoVacio
+    ? 'Impactando vacío, des-auditando y renombrando archivos...'
+    : 'Sincronizando y conservando auditorías existentes...',
+    'info', 8000
+  );
+
+  google.script.run
+    .withSuccessHandler((res) => {
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Actualizar';
+        btn.disabled = false;
+      }
+      let detalleSync = '';
+      if (res && res.linksNuevos !== undefined) {
+        detalleSync = ` (+${res.linksNuevos} nuevos, ${res.linksModificados || 0} actualizados, ${res.eliminadosTotal || 0} eliminados)`;
+      }
+      if (confirmarImpactoVacio) {
+        toast(`Baja aplicada: se des-auditaron ${res.bajasConfirmadas || 0} caso(s).${detalleSync}`, 'success', 8000);
+      } else {
+        toast(`Sincronización completada (auditorías preservadas).${detalleSync}`, 'success', 6000);
+      }
+      if (res && res.inconsistencias > 0) {
+        toast(`⚠️ ${res.inconsistencias} fila(s) con inconsistencias detectadas`, 'warning', 6000);
+      }
+      iniciarCargaDatos(1);
+    })
+    .withFailureHandler(err => {
+      if (btn) {
+        btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Actualizar';
+        btn.disabled = false;
+      }
+      console.error('Error al sincronizar:', err);
+      toast('Error al sincronizar: ' + (err.message || err), 'error', 25000);
+    })
+    .sincronizarForzado(confirmarImpactoVacio ? { confirmarImpactoVacio: true } : { ignorarConflictos: true });
+}
+
+function iniciarCargaDatos(intentosRestantes) {
+  let avance = 30;
+  const barra = setInterval(() => { avance = Math.min(avance + Math.random() * 10, 95); document.getElementById('progressBar').style.width = avance + '%'; }, 400);
+  google.script.run
+    .withSuccessHandler(datos => {
+      clearInterval(barra);
+      document.getElementById('progressBar').style.width = '100%';
+      baseDatosOriginal = datos;
+      setTimeout(() => { document.getElementById('loadingOverlay').style.display = 'none'; filtrarLocamente(); }, 300);
+    })
+    .withFailureHandler(() => {
+      if (intentosRestantes > 1) { toast('Reintentando...', 'warning'); setTimeout(() => iniciarCargaDatos(intentosRestantes - 1), 1500); }
+      else { clearInterval(barra); document.getElementById('loadingOverlay').style.display = 'none'; toast("Error de conexión", 'error'); }
+    })
+    .cargarDatosBase();
+}
+
+window.onload = () => {
+  google.script.run
+    .withSuccessHandler(listas => {
+      vinculaciones = listas.vinculaciones || [];
+      const selContrato = document.getElementById('f_contrato');
+      const contratos   = new Set(vinculaciones.map(v => v.contrato));
+      Array.from(contratos).sort().forEach(c => selContrato.innerHTML += `<option value="${c}">${c}</option>`);
+      document.getElementById('f_estudio').innerHTML    += listas.estudios.map(e => `<option value="${e}">${e}</option>`).join('');
+      document.getElementById('f_fecha_deriv').innerHTML += listas.fechasDeriv.map(f => `<option value="${f}">${f}</option>`).join('');
+      iniciarCargaDatos(3);
+    })
+    .withFailureHandler(err => { document.getElementById('loadingOverlay').style.display = 'none'; toast("Error: " + err.message, 'error'); })
+    .cargarFiltros();
+};
+
+// ==================================================================
+// VALIDACIÓN DE FECHAS
+// ==================================================================
+function convertirDateADdMmYyyy(s) {
+  if (!s) return "";
+  const p = s.split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : s;
+}
+
+function validarFechaInput(el) {
+  el.classList.toggle('input-error', !!(el.value && !/^\d{2}\/\d{2}\/\d{4}$/.test(el.value)));
+}
+
+function normalizarFecha(s) {
+  if (!s && s !== 0) return "";
+  s = String(s).trim();
+  if (!s || s === '-' || s.toLowerCase() === 'invalid date' || s.toLowerCase() === 'null' || s.toLowerCase() === 'undefined') return "";
+
+  // 1) Si viene como DD/MM/YYYY o D/M/YYYY
+  const mArSlash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mArSlash) {
+    return `${mArSlash[1].padStart(2, '0')}/${mArSlash[2].padStart(2, '0')}/${mArSlash[3]}`;
+  }
+
+  // 2) Si viene como DD-MM-YYYY o D-M-YYYY
+  const mArDash = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/);
+  if (mArDash) {
+    return `${mArDash[1].padStart(2, '0')}/${mArDash[2].padStart(2, '0')}/${mArDash[3]}`;
+  }
+
+  // 3) Si viene como YYYY-MM-DD o YYYY/MM/DD (incluyendo ISO con 'T' o hora)
+  const mIso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (mIso) {
+    return `${mIso[3].padStart(2, '0')}/${mIso[2].padStart(2, '0')}/${mIso[1]}`;
+  }
+
+  // 4) Si viene con año de 2 dígitos: DD/MM/YY o DD-MM-YY
+  const m2Dig = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2})$/);
+  if (m2Dig) {
+    const anio = parseInt(m2Dig[3], 10) > 50 ? `19${m2Dig[3]}` : `20${m2Dig[3]}`;
+    return `${m2Dig[1].padStart(2, '0')}/${m2Dig[2].padStart(2, '0')}/${anio}`;
+  }
+
+  // 5) Fallback objeto Date o string Date general
+  const dt = new Date(s);
+  if (!isNaN(dt.getTime()) && dt.getFullYear() > 1900 && dt.getFullYear() < 2100) {
+    const d = String(dt.getDate()).padStart(2, '0');
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const y = dt.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
+  return s;
+}
+
+function validarFechaDatePicker(el) {
+  el.classList.toggle('input-error', !!(el.value && !/^\d{4}-\d{2}-\d{2}$/.test(el.value)));
+}
+
+// [2026-09-06] Abrir carpeta de Drive del establecimiento solo si ya fue creada
+function abrirCarpetaEstablecimiento(cuit, contrato, srt, estab, btn) {
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+  
+  // Abrir ventana temporalmente para evitar bloqueo de popups en el navegador
+  const popup = window.open('about:blank', '_blank');
+  if (popup) {
+    popup.document.write('<p style="font-family:sans-serif;padding:24px;color:#475569;font-size:14px;">Buscando carpeta en Google Drive...</p>');
+  }
+
+  google.script.run
+    .withSuccessHandler(url => {
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+      if (url) {
+        if (popup) popup.location.href = url;
+        else window.open(url, '_blank');
+      } else {
+        // [2026-09-06] Si no está creada, cierra la pestaña y no abre nada
+        if (popup) popup.close();
+        toast('La carpeta de este establecimiento aún no ha sido creada en Drive', 'warning', 4500);
+      }
+    })
+    .withFailureHandler(err => {
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+      if (popup) popup.close();
+      toast('Error al consultar Drive: ' + err.message, 'error');
+    })
+    .obtenerUrlCarpetaEstablecimiento(cuit, contrato, srt, estab);
+}
+</script>

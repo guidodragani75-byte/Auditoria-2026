@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reportes de Avance · Auditoría Médica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0b1120;
+      --surface:  #111827;
+      --surface2: #1a2236;
+      --border:   #1e2d45;
+      --text:     #e2e8f0;
+      --muted:    #94a3b8;
+      --blue:     #3b82f6;
+      --green:    #10b981;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --purple:   #8b5cf6;
+      --cyan:     #06b6d4;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-weight: 400 !important;
+      font-size: 0.78rem;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.78rem;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* LOADING OVERLAY */
+    #overlay {
+      position: fixed; inset: 0; background: var(--bg);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; gap: 16px;
+    }
+    .spinner {
+      width: 40px; height: 40px; border: 3px solid var(--border);
+      border-top-color: var(--cyan); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spin { animation: spin 0.8s linear infinite; display: inline-block; }
+    #overlay p { color: var(--muted); font-size: 0.78rem; }
+
+    /* HEADER */
+    .dash-header {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100; gap: 12px; flex-wrap: wrap;
+    }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--cyan), var(--blue));
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      color: #fff;
+    }
+    .logo-icon i { font-size: 1.1rem; }
+    .logo-title { font-size: 0.78rem; color: #fff; }
+    .logo-sub   { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    .btn-head {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 7px; padding: 6px 12px;
+      cursor: pointer; font-size: 0.78rem; font-family: inherit;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    }
+    .btn-head:hover { background: var(--border); color: #fff; }
+    .btn-primary-head {
+      background: var(--cyan); border: 1px solid var(--cyan);
+      color: #0b1120; border-radius: 7px; padding: 6px 14px;
+      cursor: pointer; font-size: 0.78rem; font-family: inherit;
+      transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+    }
+    .btn-primary-head:hover { background: #0891b2; color: #fff; }
+
+    /* BODY */
+    .dash-body { padding: 18px 24px; max-width: 1720px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+    /* CARDS */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    /* BADGES */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 6px; font-size: 0.78rem;
+    }
+    .badge-blue   { background: rgba(59, 130, 246, 0.15); color: var(--blue);   border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-green  { background: rgba(16, 185, 129, 0.15); color: var(--green);  border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-amber  { background: rgba(245, 158, 11, 0.15); color: var(--amber);  border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-red    { background: rgba(239, 68, 68, 0.15);  color: var(--red);    border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-cyan   { background: rgba(6, 182, 212, 0.15);  color: var(--cyan);   border: 1px solid rgba(6, 182, 212, 0.3); }
+    .badge-purple { background: rgba(139, 92, 246, 0.15); color: var(--purple); border: 1px solid rgba(139, 92, 246, 0.3); }
+
+    /* STATS / KPIS */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .stat-val { font-size: 0.78rem; color: #fff; }
+    .stat-lbl { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.3px; }
+
+    /* CHARTS CONTAINER */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 14px;
+    }
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .chart-header {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .chart-title { color: #fff; font-size: 0.78rem; display: flex; align-items: center; gap: 6px; }
+    .chart-sub { color: var(--muted); font-size: 0.75rem; }
+
+    /* BARS */
+    .bar-row {
+      display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;
+    }
+    .bar-info {
+      display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem;
+    }
+    .bar-track {
+      width: 100%; height: 10px; background: rgba(255,255,255,0.06);
+      border-radius: 5px; overflow: hidden; display: flex;
+    }
+    .bar-segment { height: 100%; transition: width 0.5s ease; }
+
+    /* FILTERS */
+    .filter-bar {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 9px; padding: 10px 14px;
+    }
+    .filter-select {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 7px; padding: 6px 12px;
+      font-size: 0.78rem; font-family: inherit; cursor: pointer; min-width: 220px;
+    }
+    .filter-select:focus { outline: none; border-color: var(--cyan); }
+    .search-input {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 7px; padding: 6px 14px;
+      font-size: 0.78rem; font-family: inherit; flex: 1; min-width: 220px;
+    }
+    .search-input:focus { outline: none; border-color: var(--cyan); }
+    .search-input::placeholder { color: var(--muted); }
+
+    /* TABLE */
+    .table-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden;
+    }
+    .table-scroll { overflow-x: auto; max-height: 75vh; overflow-y: auto; }
+    table.data-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    table.data-table thead th {
+      background: var(--surface2); padding: 10px 12px;
+      text-align: left; font-size: 0.78rem; text-transform: uppercase;
+      letter-spacing: 0.3px; color: var(--muted); white-space: nowrap;
+      border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5;
+    }
+    table.data-table thead th.center { text-align: center; }
+    table.data-table tbody tr {
+      border-bottom: 1px solid rgba(30,45,69,0.5); transition: background 0.15s;
+    }
+    table.data-table tbody tr:hover { background: rgba(6, 182, 212, 0.04); }
+    table.data-table td { padding: 10px 12px; vertical-align: middle; font-size: 0.78rem; }
+    table.data-table td.center { text-align: center; }
+    table.data-table tfoot tr {
+      background: #0f172a; border-top: 2px solid var(--border);
+    }
+    table.data-table tfoot td { padding: 12px; color: #fff; }
+
+    /* TOAST */
+    #toast {
+      position: fixed; bottom: 20px; right: 20px; z-index: 10000;
+      padding: 10px 18px; border-radius: 8px; font-size: 0.78rem;
+      display: none; box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .toast-ok { background: var(--green); color: #fff; }
+    .toast-err { background: var(--red); color: #fff; }
+    .toast-info { background: var(--blue); color: #fff; }
+    .toast-warn { background: var(--amber); color: #000; }
+  </style>
+</head>
+<body>
+
+  <!-- LOADING OVERLAY -->
+  <div id="overlay">
+    <div class="spinner"></div>
+    <p>Calculando métricas de avance de la Auditoría...</p>
+  </div>
+
+  <!-- HEADER -->
+  <header class="dash-header">
+    <div class="logo">
+      <div class="logo-icon"><i class="bi bi-speedometer2"></i></div>
+      <div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="logo-title">Control y Reportes de Avance · Auditoría Médica</div>
+          <span class="badge-impl" style="background:rgba(6,182,212,.18); color:#67e8f9; border:1px solid rgba(6,182,212,.35); font-size:.62rem; font-weight:700; padding:2px 7px; border-radius:6px; letter-spacing:.5px;">v 091026 12:15:00 (v165)</span>
+        </div>
+        <div class="logo-sub">Monitoreo de 90 Días Hábiles (Vencimiento 13/11), Prestadores, Asistencia y Adjuntos</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <a href="<?= url ?>" class="btn-head"><i class="bi bi-arrow-left"></i> Auditoría</a>
+      <a href="<?= url ?>?v=empleados" class="btn-head"><i class="bi bi-people"></i> Empleados</a>
+      <a href="<?= url ?>?v=reclamos" class="btn-head"><i class="bi bi-file-earmark-x"></i> Reclamos</a>
+      <a href="<?= url ?>?v=desvios" class="btn-head"><i class="bi bi-exclamation-octagon"></i> Desvíos</a>
+      <a href="<?= url ?>?v=comunicacion" class="btn-head"><i class="bi bi-send-check-fill"></i> Comunicar</a>
+      <a href="<?= url ?>?v=kpis" class="btn-head"><i class="bi bi-pie-chart-fill"></i> KPIs</a>
+      <a href="<?= url ?>?v=cobertura" class="btn-head"><i class="bi bi-grid-3x3-gap"></i> Cobertura</a>
+      <button type="button" class="btn-head" id="btnSync" onclick="sincronizarAvance()" style="border-color:rgba(6,182,212,0.4); color:#67e8f9;">
+        <i class="bi bi-arrow-repeat" id="iconSync"></i> Sincronizar Hoja
+      </button>
+      <button type="button" class="btn-primary-head" onclick="recargar()"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+    </div>
+  </header>
+
+  <main class="dash-body">
+
+    <!-- 1. BARRA DE AVANCE DE DÍAS HASTA EL VENCIMIENTO (90 DÍAS HÁBILES · 13/11) -->
+    <div class="card" style="border-left: 3px solid var(--amber); display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <i class="bi bi-hourglass-split" style="color:var(--amber);"></i>
+          <span style="color:#fff;">Cronograma de Avance Temporal del Operativo</span>
+          <span style="color:var(--muted);">· 90 días hábiles desde Fecha de Comunicación</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="badge badge-amber"><i class="bi bi-calendar-check"></i> Vencimiento Improrrogable: 13/11/2026</span>
+          <span class="badge badge-blue" id="lblCronogramaDias"><i class="bi bi-clock"></i> Calculando días...</span>
+        </div>
+      </div>
+
+      <div style="width:100%; background:rgba(255,255,255,0.06); height:12px; border-radius:6px; overflow:hidden; border:1px solid var(--border); display:flex;">
+        <div id="barTiempoFill" style="height:100%; width:0%; background:linear-gradient(90deg, #3b82f6, #f59e0b, #ef4444); transition:width 0.6s ease;"></div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; color:var(--muted); font-size:0.75rem;">
+        <span id="lblCronogramaInicio"><i class="bi bi-send"></i> Inicio de Plazo</span>
+        <span id="lblCronogramaHoy" style="color:var(--amber);"><i class="bi bi-geo-alt-fill"></i> Hoy: Día hábil</span>
+        <span style="color:var(--red);"><i class="bi bi-exclamation-triangle-fill"></i> Límite: 13/11/2026 (Día 90)</span>
+      </div>
+    </div>
+
+    <!-- TARJETAS KPIS -->
+    <div class="stats-bar">
+      <div class="stat-card" style="border-left:3px solid var(--cyan);">
+        <div class="stat-val" id="kpiPrestadores">0</div>
+        <div class="stat-lbl">Prestadores con Asignación</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--blue);">
+        <div class="stat-val" id="kpiEstablecimientos">0</div>
+        <div class="stat-lbl">Establecimientos Totales</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--green);">
+        <div class="stat-val" style="color:var(--green);" id="kpiEstabPres">0</div>
+        <div class="stat-lbl">Estab. c/ al menos 1 Presente</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--red);">
+        <div class="stat-val" style="color:var(--red);" id="kpiEstabAus">0</div>
+        <div class="stat-lbl">Estab. s/ Presentes (Todo Aus.)</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--purple);">
+        <div class="stat-val" style="color:var(--purple);" id="kpiEmpleados">0 / 0</div>
+        <div class="stat-lbl">Empleados Asignados / Realiz.</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--amber);">
+        <div class="stat-val" style="color:var(--amber);" id="kpiAdjuntos">0 / 0</div>
+        <div class="stat-lbl">Presentes c/ Adjunto / s/ Adj.</div>
+      </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="filter-bar">
+      <input type="text" class="search-input" id="filtroBuscar" placeholder="🔍 Buscar por Prestador..." oninput="filtrarVista()">
+      <select class="filter-select" id="filtroPrestador" onchange="filtrarVista()">
+        <option value="">Prestador: Todos (Consolidado)</option>
+      </select>
+      <button class="btn-head" onclick="limpiarFiltros()" title="Limpiar filtros">
+        <i class="bi bi-eraser"></i> Limpiar
+      </button>
+    </div>
+
+    <!-- 3 GRÁFICOS DE AVANCE Y COBERTURA -->
+    <div class="charts-grid">
+
+      <!-- GRÁFICO 1: EMPLEADOS ASIGNADOS VS REALIZADOS -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title"><i class="bi bi-bar-chart-fill" style="color:var(--blue);"></i> Avance por Prestador (Empleados)</div>
+          <span class="badge badge-blue">Asignados vs Realizados</span>
+        </div>
+        <div class="chart-sub">Comparativa de trabajadores asignados vs concurrentes con asistencia PRESENTE confirmada.</div>
+        <div id="chartAvanceCont" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; padding-right:4px;"></div>
+        <div style="display:flex; justify-content:center; gap:16px; border-top:1px solid var(--border); padding-top:8px; color:var(--muted); font-size:0.75rem;">
+          <span><span style="width:10px; height:10px; background:var(--blue); display:inline-block; border-radius:2px; margin-right:4px;"></span>Asignados</span>
+          <span><span style="width:10px; height:10px; background:var(--green); display:inline-block; border-radius:2px; margin-right:4px;"></span>Realizados (Presente)</span>
+        </div>
+      </div>
+
+      <!-- GRÁFICO 2: PRESENTES CON ADJUNTO VS SIN ADJUNTO -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title"><i class="bi bi-file-earmark-check-fill" style="color:var(--green);"></i> Documentación de Presentes</div>
+          <span class="badge badge-green">Con Adjunto vs Sin Adjunto</span>
+        </div>
+        <div class="chart-sub">Desglose de empleados presentes con informe/PDF digitalizado vs pendientes de carga.</div>
+        <div id="chartAdjuntosCont" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; padding-right:4px;"></div>
+        <div style="display:flex; justify-content:center; gap:16px; border-top:1px solid var(--border); padding-top:8px; color:var(--muted); font-size:0.75rem;">
+          <span><span style="width:10px; height:10px; background:var(--green); display:inline-block; border-radius:2px; margin-right:4px;"></span>Con Adjunto (PDF)</span>
+          <span><span style="width:10px; height:10px; background:var(--amber); display:inline-block; border-radius:2px; margin-right:4px;"></span>Sin Adjunto (Pendiente)</span>
+        </div>
+      </div>
+
+      <!-- GRÁFICO 3: ESTABLECIMIENTOS (AL MENOS UN PRESENTE VS SIN PRESENTES) -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-title"><i class="bi bi-buildings-fill" style="color:var(--cyan);"></i> Cobertura de Establecimientos</div>
+          <span class="badge badge-cyan">Iniciados vs Sin Concurrencia</span>
+        </div>
+        <div class="chart-sub">Centros con al menos 1 empleado presente vs centros donde todo el personal sigue ausente.</div>
+        <div id="chartEstabsCont" style="display:flex; flex-direction:column; gap:8px; max-height:280px; overflow-y:auto; padding-right:4px;"></div>
+        <div style="display:flex; justify-content:center; gap:16px; border-top:1px solid var(--border); padding-top:8px; color:var(--muted); font-size:0.75rem;">
+          <span><span style="width:10px; height:10px; background:var(--cyan); display:inline-block; border-radius:2px; margin-right:4px;"></span>Al menos 1 presente</span>
+          <span><span style="width:10px; height:10px; background:var(--red); display:inline-block; border-radius:2px; margin-right:4px;"></span>Sin presentes (Todo ausente)</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- TABLA PRINCIPAL POR PRESTADOR -->
+    <div class="table-card">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="min-width:220px;">Prestador</th>
+              <th class="center" style="width:130px;">Establecimientos</th>
+              <th class="center" style="width:150px;">Cobertura Estab.</th>
+              <th class="center" style="width:150px;">Empleados Asignados</th>
+              <th class="center" style="width:160px;">Empleados Realizados</th>
+              <th class="center" style="width:140px;">% Avance Realiz.</th>
+              <th class="center" style="width:150px;">Estudios Asignados</th>
+              <th class="center" style="width:150px;">Presentes c/ Adjunto</th>
+              <th class="center" style="width:150px;">Presentes s/ Adjunto</th>
+            </tr>
+          </thead>
+          <tbody id="tablaBody">
+            <tr><td colspan="9" style="text-align:center; padding:30px; color:var(--muted);">Cargando reporte de avance...</td></tr>
+          </tbody>
+          <tfoot id="tablaFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- TOAST -->
+  <div id="toast"></div>
+
+  <script type="application/json" id="__sd__"><?!= initialData ?></script>
+
+  <script>
+    var _datosAvance = null;
+    var _prestadoresFiltrados = [];
+
+    function esc(s) {
+      if (s === null || s === undefined) return '';
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function toast(msg, tipo, dur) {
+      tipo = tipo || 'info';
+      dur = dur || 3500;
+      var t = document.getElementById('toast');
+      if (!t) return;
+      t.className = 'toast-' + tipo;
+      t.innerText = msg;
+      t.style.display = 'block';
+      setTimeout(function() { t.style.display = 'none'; }, dur);
+    }
+
+    function recargar() {
+      document.getElementById('overlay').style.display = 'flex';
+      google.script.run
+        .withSuccessHandler(function(data) {
+          document.getElementById('overlay').style.display = 'none';
+          _datosAvance = data || {};
+          actualizarFiltroSelect();
+          filtrarVista();
+          toast('✓ Reporte de avance actualizado con éxito', 'ok');
+        })
+        .withFailureHandler(function(err) {
+          document.getElementById('overlay').style.display = 'none';
+          toast('Error al cargar avance: ' + (err ? err.message : ''), 'err', 5000);
+        })
+        .obtenerDatosAvance();
+    }
+
+    function sincronizarAvance() {
+      var btn = document.getElementById('btnSync');
+      var icon = document.getElementById('iconSync');
+      if (btn) btn.disabled = true;
+      if (icon) icon.classList.add('spin');
+      toast('Sincronizando pestaña Reportes Avance en Google Sheets...', 'info', 10000);
+
+      google.script.run
+        .withSuccessHandler(function(res) {
+          if (btn) btn.disabled = false;
+          if (icon) icon.classList.remove('spin');
+          toast('✓ Pestaña física Reportes Avance actualizada en Sheets', 'ok', 4000);
+          recargar();
+        })
+        .withFailureHandler(function(err) {
+          if (btn) btn.disabled = false;
+          if (icon) icon.classList.remove('spin');
+          toast('Error al sincronizar pestaña: ' + (err ? err.message : ''), 'err', 5000);
+        })
+        .sincronizarHojaAvance();
+    }
+
+    window.onload = function() {
+      try {
+        var raw = document.getElementById('__sd__').textContent;
+        var data = JSON.parse(raw || '{}');
+        if (data && data.prestadores && data.prestadores.length > 0) {
+          document.getElementById('overlay').style.display = 'none';
+          _datosAvance = data;
+          actualizarFiltroSelect();
+          filtrarVista();
+          return;
+        }
+      } catch (e) {
+        console.warn('Error procesando initialData:', e);
+      }
+      recargar();
+    };
+
+    function actualizarFiltroSelect() {
+      var sel = document.getElementById('filtroPrestador');
+      if (!sel || !_datosAvance || !_datosAvance.prestadores) return;
+      var actual = sel.value;
+      sel.innerHTML = '<option value="">Prestador: Todos (' + _datosAvance.prestadores.length + ')</option>';
+      _datosAvance.prestadores.forEach(function(p) {
+        var opt = document.createElement('option');
+        opt.value = p.nombre;
+        opt.textContent = p.nombre;
+        if (p.nombre === actual) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function limpiarFiltros() {
+      document.getElementById('filtroBuscar').value = '';
+      document.getElementById('filtroPrestador').value = '';
+      filtrarVista();
+    }
+
+    function filtrarVista() {
+      if (!_datosAvance || !_datosAvance.prestadores) return;
+
+      var bus = (document.getElementById('filtroBuscar').value || '').toLowerCase().trim();
+      var fPrest = document.getElementById('filtroPrestador').value;
+
+      _prestadoresFiltrados = _datosAvance.prestadores.filter(function(p) {
+        if (fPrest && p.nombre !== fPrest) return false;
+        if (bus && p.nombre.toLowerCase().indexOf(bus) === -1) return false;
+        return true;
+      });
+
+      renderCronograma();
+      renderKPIs();
+      renderGraficos();
+      renderTabla();
+    }
+
+    function renderCronograma() {
+      var c = (_datosAvance && _datosAvance.cronograma) ? _datosAvance.cronograma : {
+        diasTotales: 90,
+        diasTranscurridos: 46,
+        diasRestantes: 44,
+        pctTranscurrido: 51.1,
+        fechaInicio: '08/07/2026',
+        fechaFin: '13/11/2026'
+      };
+
+      document.getElementById('barTiempoFill').style.width = c.pctTranscurrido + '%';
+      document.getElementById('lblCronogramaDias').innerHTML = '<i class="bi bi-clock"></i> ' + c.diasRestantes + ' días hábiles restantes (' + (100 - c.pctTranscurrido).toFixed(1) + '%)';
+      document.getElementById('lblCronogramaInicio').innerHTML = '<i class="bi bi-send"></i> Inicio: ' + c.fechaInicio + ' (Día 1)';
+      document.getElementById('lblCronogramaHoy').innerHTML = '<i class="bi bi-geo-alt-fill"></i> Hoy: Día ' + c.diasTranscurridos + ' hábil (' + c.pctTranscurrido + '%)';
+    }
+
+    function renderKPIs() {
+      var data = _prestadoresFiltrados;
+      var prestadores = data.length;
+      var estTotal = 0, estPres = 0, estAus = 0;
+      var empAsig = 0, empReal = 0, estAsig = 0;
+      var adjCon = 0, adjSin = 0;
+
+      data.forEach(function(d) {
+        estTotal += d.establecimientosTotal;
+        estPres += d.estabConPresente;
+        estAus += d.estabSinPresente;
+        empAsig += d.empleadosAsignados;
+        empReal += d.empleadosRealizados;
+        estAsig += d.estudiosAsignados;
+        adjCon += d.presentesConAdjunto;
+        adjSin += d.presentesSinAdjunto;
+      });
+
+      var pctEmp = empAsig > 0 ? ((empReal / empAsig) * 100).toFixed(1) : 0;
+      var pctAdj = empReal > 0 ? ((adjCon / empReal) * 100).toFixed(1) : 0;
+      var pctEstPres = estTotal > 0 ? ((estPres / estTotal) * 100).toFixed(1) : 0;
+      var pctEstAus = estTotal > 0 ? ((estAus / estTotal) * 100).toFixed(1) : 0;
+
+      document.getElementById('kpiPrestadores').textContent = prestadores;
+      document.getElementById('kpiEstablecimientos').textContent = estTotal;
+      document.getElementById('kpiEstabPres').innerHTML = estPres + ' <span style="font-size:0.72rem; color:var(--green);">(' + pctEstPres + '%)</span>';
+      document.getElementById('kpiEstabAus').innerHTML = estAus + ' <span style="font-size:0.72rem; color:var(--red);">(' + pctEstAus + '%)</span>';
+      document.getElementById('kpiEmpleados').innerHTML = empAsig.toLocaleString('es-AR') + ' / ' + empReal.toLocaleString('es-AR') + ' <span style="font-size:0.72rem; color:var(--purple);">(' + pctEmp + '%)</span>';
+      document.getElementById('kpiAdjuntos').innerHTML = adjCon.toLocaleString('es-AR') + ' / ' + adjSin.toLocaleString('es-AR') + ' <span style="font-size:0.72rem; color:var(--amber);">(' + pctAdj + '%)</span>';
+    }
+
+    function renderGraficos() {
+      var data = _prestadoresFiltrados;
+
+      // 1. Avance Empleados
+      var cont1 = document.getElementById('chartAvanceCont');
+      cont1.innerHTML = '';
+      data.forEach(function(d) {
+        var pct = d.empleadosAsignados > 0 ? ((d.empleadosRealizados / d.empleadosAsignados) * 100).toFixed(1) : 0;
+        var div = document.createElement('div');
+        div.className = 'bar-row';
+        div.innerHTML =
+          '<div class="bar-info">' +
+            '<span style="color:#fff;">' + esc(d.nombre) + '</span>' +
+            '<span style="color:var(--muted);">' + d.empleadosRealizados + ' / ' + d.empleadosAsignados + ' (' + pct + '%)</span>' +
+          '</div>' +
+          '<div class="bar-track">' +
+            '<div class="bar-segment" style="width:' + pct + '%; background:var(--green);"></div>' +
+            '<div class="bar-segment" style="width:' + (100 - pct) + '%; background:rgba(59,130,246,0.3);"></div>' +
+          '</div>';
+        cont1.appendChild(div);
+      });
+
+      // 2. Adjuntos
+      var cont2 = document.getElementById('chartAdjuntosCont');
+      cont2.innerHTML = '';
+      data.forEach(function(d) {
+        var total = d.presentesConAdjunto + d.presentesSinAdjunto;
+        var pctCon = total > 0 ? ((d.presentesConAdjunto / total) * 100).toFixed(1) : 0;
+        var pctSin = total > 0 ? ((d.presentesSinAdjunto / total) * 100).toFixed(1) : 0;
+        var div = document.createElement('div');
+        div.className = 'bar-row';
+        div.innerHTML =
+          '<div class="bar-info">' +
+            '<span style="color:#fff;">' + esc(d.nombre) + '</span>' +
+            '<span style="color:var(--muted);">' + d.presentesConAdjunto + ' c/ adj. · ' + d.presentesSinAdjunto + ' s/ adj. (' + pctCon + '%)</span>' +
+          '</div>' +
+          '<div class="bar-track">' +
+            '<div class="bar-segment" style="width:' + pctCon + '%; background:var(--green);"></div>' +
+            '<div class="bar-segment" style="width:' + pctSin + '%; background:var(--amber);"></div>' +
+          '</div>';
+        cont2.appendChild(div);
+      });
+
+      // 3. Establecimientos
+      var cont3 = document.getElementById('chartEstabsCont');
+      cont3.innerHTML = '';
+      data.forEach(function(d) {
+        var total = d.establecimientosTotal;
+        var pctPres = total > 0 ? ((d.estabConPresente / total) * 100).toFixed(1) : 0;
+        var pctAus = total > 0 ? ((d.estabSinPresente / total) * 100).toFixed(1) : 0;
+        var div = document.createElement('div');
+        div.className = 'bar-row';
+        div.innerHTML =
+          '<div class="bar-info">' +
+            '<span style="color:#fff;">' + esc(d.nombre) + '</span>' +
+            '<span style="color:var(--muted);">' + d.estabConPresente + ' iniciados · ' + d.estabSinPresente + ' sin concurrencia</span>' +
+          '</div>' +
+          '<div class="bar-track">' +
+            '<div class="bar-segment" style="width:' + pctPres + '%; background:var(--cyan);"></div>' +
+            '<div class="bar-segment" style="width:' + pctAus + '%; background:var(--red);"></div>' +
+          '</div>';
+        cont3.appendChild(div);
+      });
+    }
+
+    function renderTabla() {
+      var tbody = document.getElementById('tablaBody');
+      var tfoot = document.getElementById('tablaFoot');
+      tbody.innerHTML = '';
+      tfoot.innerHTML = '';
+
+      var data = _prestadoresFiltrados;
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:30px; color:var(--muted);">No se encontraron prestadores con los filtros seleccionados.</td></tr>';
+        return;
+      }
+
+      var frag = document.createDocumentFragment();
+      var tEstab = 0, tEstabPres = 0, tEstabAus = 0;
+      var tEmpAsig = 0, tEmpReal = 0, tEstAsig = 0;
+      var tAdjCon = 0, tAdjSin = 0;
+
+      data.forEach(function(d) {
+        tEstab += d.establecimientosTotal;
+        tEstabPres += d.estabConPresente;
+        tEstabAus += d.estabSinPresente;
+        tEmpAsig += d.empleadosAsignados;
+        tEmpReal += d.empleadosRealizados;
+        tEstAsig += d.estudiosAsignados;
+        tAdjCon += d.presentesConAdjunto;
+        tAdjSin += d.presentesSinAdjunto;
+
+        var pctAvance = d.empleadosAsignados > 0 ? ((d.empleadosRealizados / d.empleadosAsignados) * 100).toFixed(1) : 0;
+        var pctEstab = d.establecimientosTotal > 0 ? ((d.estabConPresente / d.establecimientosTotal) * 100).toFixed(1) : 0;
+
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' +
+            '<div style="color:#fff; display:flex; align-items:center; gap:8px;">' +
+              '<i class="bi bi-hospital" style="color:var(--cyan);"></i>' +
+              '<span>' + esc(d.nombre) + '</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="center">' +
+            '<span class="badge badge-blue"><i class="bi bi-buildings"></i> ' + d.establecimientosTotal + '</span>' +
+          '</td>' +
+          '<td class="center">' +
+            '<div style="display:flex; align-items:center; justify-content:center; gap:6px;">' +
+              '<span class="badge badge-green" title="Con al menos 1 presente">' + d.estabConPresente + '</span>' +
+              '<span style="color:var(--muted);">/</span>' +
+              '<span class="badge badge-red" title="Sin presentes">' + d.estabSinPresente + '</span>' +
+              '<span style="color:var(--muted); font-size:0.72rem;">(' + pctEstab + '%)</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="center">' +
+            '<span style="color:#e2e8f0; font-family:monospace;">' + d.empleadosAsignados.toLocaleString('es-AR') + '</span>' +
+          '</td>' +
+          '<td class="center">' +
+            '<span class="badge badge-cyan"><i class="bi bi-person-check-fill"></i> ' + d.empleadosRealizados.toLocaleString('es-AR') + '</span>' +
+          '</td>' +
+          '<td class="center">' +
+            '<div style="display:flex; align-items:center; justify-content:center; gap:6px;">' +
+              '<div style="width:50px; height:6px; background:rgba(255,255,255,0.06); border-radius:3px; overflow:hidden;">' +
+                '<div style="width:' + pctAvance + '%; height:100%; background:var(--green); border-radius:3px;"></div>' +
+              '</div>' +
+              '<span style="color:var(--green);">' + pctAvance + '%</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="center">' +
+            '<span class="badge badge-purple"><i class="bi bi-collection"></i> ' + d.estudiosAsignados.toLocaleString('es-AR') + '</span>' +
+          '</td>' +
+          '<td class="center">' +
+            '<span class="badge badge-green"><i class="bi bi-file-earmark-pdf"></i> ' + d.presentesConAdjunto.toLocaleString('es-AR') + '</span>' +
+          '</td>' +
+          '<td class="center">' +
+            '<span class="badge badge-amber"><i class="bi bi-clock-history"></i> ' + d.presentesSinAdjunto.toLocaleString('es-AR') + '</span>' +
+          '</td>';
+
+        frag.appendChild(tr);
+      });
+
+      tbody.appendChild(frag);
+
+      var totPctAvance = tEmpAsig > 0 ? ((tEmpReal / tEmpAsig) * 100).toFixed(1) : 0;
+      var totPctEstab = tEstab > 0 ? ((tEstabPres / tEstab) * 100).toFixed(1) : 0;
+
+      tfoot.innerHTML =
+        '<tr>' +
+          '<td>TOTAL CONSOLIDADO (' + data.length + ' prestadores)</td>' +
+          '<td class="center"><span class="badge badge-blue">' + tEstab + '</span></td>' +
+          '<td class="center">' +
+            '<div style="display:flex; align-items:center; justify-content:center; gap:6px;">' +
+              '<span class="badge badge-green">' + tEstabPres + '</span>' +
+              '<span style="color:var(--muted);">/</span>' +
+              '<span class="badge badge-red">' + tEstabAus + '</span>' +
+              '<span style="color:var(--muted); font-size:0.72rem;">(' + totPctEstab + '%)</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="center" style="font-family:monospace;">' + tEmpAsig.toLocaleString('es-AR') + '</td>' +
+          '<td class="center"><span class="badge badge-cyan">' + tEmpReal.toLocaleString('es-AR') + '</span></td>' +
+          '<td class="center" style="color:var(--green);">' + totPctAvance + '%</td>' +
+          '<td class="center"><span class="badge badge-purple">' + tEstAsig.toLocaleString('es-AR') + '</span></td>' +
+          '<td class="center"><span class="badge badge-green">' + tAdjCon.toLocaleString('es-AR') + '</span></td>' +
+          '<td class="center"><span class="badge badge-amber">' + tAdjSin.toLocaleString('es-AR') + '</span></td>' +
+        '</tr>';
+    }
+  </script>
+</body>
+</html>

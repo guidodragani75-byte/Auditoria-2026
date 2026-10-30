@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cobertura · Auditoría Médica</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #0b1120;
+      --surface:  #111827;
+      --surface2: #1a2236;
+      --border:   #1e2d45;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --blue:     #3b82f6;
+      --green:    #10b981;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --cyan:     #06b6d4;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); font-size:.82rem; min-height:100vh; }
+
+    /* LOADING */
+    #overlay { position:fixed; inset:0; background:var(--bg); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:9999; gap:20px; }
+    .spinner { width:48px; height:48px; border:3px solid var(--border); border-top-color:var(--cyan); border-radius:50%; animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #overlay p { color:var(--muted); font-size:.8rem; }
+
+    /* HEADER */
+    .dash-header { background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%); border-bottom:1px solid var(--border); padding:16px 28px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+    .logo { display:flex; align-items:center; gap:14px; }
+    .logo-icon { width:38px; height:38px; background:linear-gradient(135deg,var(--cyan),var(--blue)); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; color:#fff; }
+    .logo-title { font-size:1rem; font-weight:700; color:#fff; }
+    .logo-sub   { font-size:.62rem; color:var(--muted); margin-top:1px; }
+    .header-right { display:flex; align-items:center; gap:10px; }
+    #ts { font-size:.62rem; color:var(--muted); }
+    .btn-head { background:var(--surface2); border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:6px 14px; cursor:pointer; font-size:.72rem; font-family:inherit; transition:all .2s; display:inline-flex; align-items:center; gap:6px; }
+    .btn-head:hover { background:var(--border); color:var(--text); }
+
+    /* BODY */
+    .dash-body { padding:24px 28px; max-width:1700px; margin:0 auto; }
+
+    /* SECTION LABEL */
+    .section-label { font-size:.6rem; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+    .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+    /* KPI CARDS */
+    .kpi-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:28px; }
+    @media(max-width:900px) { .kpi-grid { grid-template-columns:repeat(3,1fr); } }
+    .kpi-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px; position:relative; overflow:hidden; transition:transform .2s,box-shadow .2s; }
+    .kpi-card:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.3); }
+    .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+    .kpi-card.c-blue::before  { background:var(--blue); }
+    .kpi-card.c-green::before { background:var(--green); }
+    .kpi-card.c-amber::before { background:var(--amber); }
+    .kpi-card.c-cyan::before  { background:var(--cyan); }
+    .kpi-icon { font-size:1.3rem; margin-bottom:10px; opacity:.8; }
+    .kpi-card.c-blue  .kpi-icon { color:var(--blue); }
+    .kpi-card.c-green .kpi-icon { color:var(--green); }
+    .kpi-card.c-amber .kpi-icon { color:var(--amber); }
+    .kpi-card.c-cyan  .kpi-icon { color:var(--cyan); }
+    .kpi-value { font-size:2rem; font-weight:800; color:#fff; line-height:1; margin-bottom:4px; }
+    .kpi-label { font-size:.6rem; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); }
+
+    /* SEARCH BAR */
+    .toolbar { display:flex; gap:10px; margin-bottom:16px; align-items:center; }
+    .search-input { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 14px; color:var(--text); font-family:inherit; font-size:.75rem; transition:border .2s; }
+    .search-input:focus { outline:none; border-color:var(--cyan); }
+    .search-input::placeholder { color:var(--muted); }
+    #resultCount { font-size:.65rem; color:var(--muted); white-space:nowrap; }
+
+    /* TABLE */
+    .table-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+    .table-scroll { overflow-x:auto; max-height:72vh; overflow-y:auto; }
+
+    table.cob { width:100%; border-collapse:collapse; font-size:.72rem; }
+
+    /* Sticky double header */
+    table.cob thead th { background:var(--surface2); padding:9px 12px; text-align:center; font-size:.54rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); white-space:nowrap; border-bottom:1px solid var(--border); position:sticky; z-index:10; }
+    table.cob thead tr:first-child th { top:0; border-bottom:none; }
+    table.cob thead tr:last-child  th { top:34px; }
+
+    table.cob thead th.left { text-align:left; }
+    table.cob thead th.grp-asist  { color:var(--cyan);  border-left:1px solid rgba(6,182,212,.25); border-right:1px solid rgba(6,182,212,.25); }
+    table.cob thead th.grp-result { color:var(--green); border-left:1px solid rgba(16,185,129,.25); border-right:1px solid rgba(16,185,129,.25); }
+    table.cob thead th.sub-pres   { color:#10b981; border-left:1px solid rgba(6,182,212,.25); }
+    table.cob thead th.sub-gest   { color:#3b82f6; }
+    table.cob thead th.sub-aus    { color:#ef4444; }
+    table.cob thead th.sub-sin    { color:#64748b; border-right:1px solid rgba(6,182,212,.25); }
+    table.cob thead th.sub-con    { color:#10b981; border-left:1px solid rgba(16,185,129,.25); }
+    table.cob thead th.sub-sinr   { color:#f59e0b; border-right:1px solid rgba(16,185,129,.25); }
+
+    /* Rows */
+    table.cob tbody tr.org-row { border-bottom:1px solid var(--border); cursor:pointer; transition:background .15s; }
+    table.cob tbody tr.org-row:hover { background:rgba(59,130,246,.05); }
+    table.cob tbody tr.org-row.expanded { background:rgba(6,182,212,.04); border-bottom:none; }
+    table.cob tbody tr.est-row { background:rgba(255,255,255,.012); border-bottom:1px solid rgba(30,45,69,.4); display:none; }
+    table.cob tbody tr.est-row.visible { display:table-row; }
+    table.cob tbody tr.total-row { background:var(--surface2); border-top:2px solid var(--border); }
+
+    table.cob td { padding:10px 12px; vertical-align:middle; border:none; }
+    table.cob td.right  { text-align:right; }
+    table.cob td.center { text-align:center; }
+
+    /* Border separators on data cells */
+    table.cob td.b-left-cyan  { border-left:1px solid rgba(6,182,212,.18); }
+    table.cob td.b-right-cyan { border-right:1px solid rgba(6,182,212,.18); }
+    table.cob td.b-left-grn   { border-left:1px solid rgba(16,185,129,.18); }
+    table.cob td.b-right-grn  { border-right:1px solid rgba(16,185,129,.18); }
+
+    .name-cell { display:flex; align-items:center; gap:8px; }
+    .expand-icon { color:var(--muted); font-size:.78rem; transition:transform .2s; flex-shrink:0; }
+
+    .est-name-td { padding-left:36px !important; color:var(--muted) !important; font-size:.68rem; }
+
+    /* Chips */
+    .chip { display:inline-block; padding:2px 8px; border-radius:20px; font-size:.62rem; font-weight:700; }
+    .chip-green { background:rgba(16,185,129,.15); color:#10b981; }
+    .chip-blue  { background:rgba(59,130,246,.15);  color:#3b82f6; }
+    .chip-red   { background:rgba(239,68,68,.15);   color:#ef4444; }
+    .chip-muted { background:rgba(100,116,139,.1);  color:#64748b; }
+    .chip-amber { background:rgba(245,158,11,.15);  color:#f59e0b; }
+
+    .zero { color:var(--border); font-size:.62rem; }
+
+    /* Error */
+    .error-box { background:rgba(239,68,68,.1); border:1px solid var(--red); border-radius:10px; padding:20px; color:var(--red); text-align:center; margin:20px; }
+  </style>
+</head>
+<body>
+
+<div id="overlay">
+  <div class="spinner"></div>
+  <p>Calculando cobertura...</p>
+</div>
+
+<div class="dash-header">
+  <div class="logo">
+    <div class="logo-icon"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+    <div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div class="logo-title">Cobertura por Establecimiento</div>
+        <span class="badge-impl" style="background:rgba(6,182,212,.18); color:#22d3ee; border:1px solid rgba(6,182,212,.35); font-size:.62rem; font-weight:700; padding:2px 7px; border-radius:6px; letter-spacing:.5px;">v 091026 12:15:00 (v165)</span>
+      </div>
+      <div class="logo-sub">GRV · Grupo Río Varadero · Auditoría Médica</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <a href="<?= url ?>" class="btn-head"><i class="bi bi-arrow-left"></i> Auditoría</a>
+    <a href="<?= url ?>?v=empleados" class="btn-head"><i class="bi bi-people"></i> Empleados</a>
+    <a href="<?= url ?>?v=reclamos" class="btn-head"><i class="bi bi-file-earmark-x"></i> Reclamos</a>
+    <a href="<?= url ?>?v=desvios" class="btn-head"><i class="bi bi-exclamation-octagon"></i> Desvíos</a>
+    <a href="<?= url ?>?v=comunicacion" class="btn-head"><i class="bi bi-send-check-fill"></i> Comunicar</a>
+    <a href="<?= url ?>?v=avance" class="btn-head"><i class="bi bi-speedometer2"></i> Avance</a>
+    <span id="ts"></span>
+    <button class="btn-head" onclick="window.close()"><i class="bi bi-x-lg"></i> Cerrar</button>
+  </div>
+</div>
+
+<div class="dash-body" id="dashBody" style="display:none;">
+
+  <!-- KPIs -->
+  <div class="section-label"><i class="bi bi-grid-3x2-gap-fill"></i> Resumen Global</div>
+  <div class="kpi-grid">
+    <div class="kpi-card c-cyan">
+      <div class="kpi-icon"><i class="bi bi-building"></i></div>
+      <div class="kpi-value" id="kOrg">—</div>
+      <div class="kpi-label">Organismos</div>
+    </div>
+    <div class="kpi-card c-blue">
+      <div class="kpi-icon"><i class="bi bi-people-fill"></i></div>
+      <div class="kpi-value" id="kEmp">—</div>
+      <div class="kpi-label">Empleados únicos</div>
+    </div>
+    <div class="kpi-card c-cyan">
+      <div class="kpi-icon"><i class="bi bi-clipboard2-pulse-fill"></i></div>
+      <div class="kpi-value" id="kEst">—</div>
+      <div class="kpi-label">Estudios totales</div>
+    </div>
+    <div class="kpi-card c-green">
+      <div class="kpi-icon"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="kpi-value" id="kConRes">—</div>
+      <div class="kpi-label">Emp. con resultado</div>
+    </div>
+    <div class="kpi-card c-amber">
+      <div class="kpi-icon"><i class="bi bi-hourglass-split"></i></div>
+      <div class="kpi-value" id="kSinRes">—</div>
+      <div class="kpi-label">Emp. sin resultado</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <input type="text" class="search-input" id="searchInput" placeholder="🔍  Buscar organismo o establecimiento..." oninput="filtrarTabla()">
+    <span id="resultCount"></span>
+    <button class="btn-head" onclick="expandirTodos()"><i class="bi bi-chevron-double-down"></i> Expandir todo</button>
+    <button class="btn-head" onclick="colapsarTodos()"><i class="bi bi-chevron-double-up"></i> Colapsar todo</button>
+  </div>
+
+  <!-- Table -->
+  <div class="section-label"><i class="bi bi-table"></i> Detalle por Organismo → Establecimiento</div>
+  <div class="table-card">
+    <div class="table-scroll">
+      <table class="cob">
+        <thead>
+          <tr>
+            <th rowspan="2" class="left" style="width:300px; top:0; z-index:11;">Organismo / Establecimiento</th>
+            <th rowspan="2" style="top:0; z-index:11;">Empleados</th>
+            <th rowspan="2" style="top:0; z-index:11;">Estudios</th>
+            <th colspan="4" class="grp-asist" style="border-bottom:1px solid rgba(6,182,212,.3);">
+              <i class="bi bi-person-check"></i>&nbsp; Estado de Asistencia
+            </th>
+            <th colspan="2" class="grp-result" style="border-bottom:1px solid rgba(16,185,129,.3);">
+              <i class="bi bi-clipboard2-check"></i>&nbsp; Resultado de Auditoría
+            </th>
+          </tr>
+          <tr>
+            <th class="sub-pres">Presentes</th>
+            <th class="sub-gest">En Gestión</th>
+            <th class="sub-aus">Ausentes</th>
+            <th class="sub-sin">Sin Estado</th>
+            <th class="sub-con">Con Resultado</th>
+            <th class="sub-sinr">Sin Resultado</th>
+          </tr>
+        </thead>
+        <tbody id="cobBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let _allData = [];
+
+function n(v) { return (v||0).toLocaleString('es-AR'); }
+
+function chip(v, cls) {
+  if (!v) return '<span class="zero">—</span>';
+  return `<span class="chip ${cls}">${n(v)}</span>`;
+}
+
+function cap(s) {
+  if (!s) return '—';
+  return String(s).toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function countUp(el, target, dur = 900) {
+  const start = performance.now();
+  const run = now => {
+    const p = Math.min((now - start) / dur, 1);
+    el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))).toLocaleString('es-AR');
+    if (p < 1) requestAnimationFrame(run);
+  };
+  requestAnimationFrame(run);
+}
+
+window.onload = () => {
+  const now = new Date();
+  document.getElementById('ts').textContent =
+    `Actualizado: ${now.toLocaleDateString('es-AR')} ${now.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}`;
+  google.script.run
+    .withSuccessHandler(render)
+    .withFailureHandler(err => {
+      document.getElementById('overlay').innerHTML =
+        `<div class="error-box"><i class="bi bi-exclamation-triangle-fill" style="font-size:2rem;"></i><br><br><strong>Error al cargar</strong><br>${err.message}</div>`;
+    })
+    .obtenerDatosCobertura();
+};
+
+function render(resp) {
+  if (resp.error) {
+    document.getElementById('overlay').innerHTML =
+      `<div class="error-box"><strong>${resp.error}</strong></div>`;
+    return;
+  }
+  _allData = resp.data || [];
+  const tot = resp.totales;
+
+  document.getElementById('overlay').style.display  = 'none';
+  document.getElementById('dashBody').style.display = 'block';
+
+  countUp(document.getElementById('kOrg'),    tot.organismos);
+  countUp(document.getElementById('kEmp'),    tot.empleados);
+  countUp(document.getElementById('kEst'),    tot.estudios);
+  countUp(document.getElementById('kConRes'), tot.conResultado);
+  countUp(document.getElementById('kSinRes'), tot.sinResultado);
+
+  renderTabla(_allData);
+}
+
+function renderTabla(data) {
+  const body = document.getElementById('cobBody');
+  body.innerHTML = '';
+  const frag = document.createDocumentFragment();
+
+  let tEmp=0, tEst=0, tPres=0, tGest=0, tAus=0, tSinE=0, tCon=0, tSin=0;
+
+  data.forEach((org, oi) => {
+    tEmp  += org.empleados;    tEst  += org.estudios;
+    tPres += org.presentes;    tGest += org.enGestion;
+    tAus  += org.ausentes;     tSinE += org.sinEstado;
+    tCon  += org.conResultado; tSin  += org.sinResultado;
+
+    // — Fila organismo —
+    const trOrg = document.createElement('tr');
+    trOrg.className = 'org-row';
+    trOrg.id = `org_${oi}`;
+    trOrg.onclick = () => toggleOrg(oi);
+    trOrg.innerHTML = `
+      <td>
+        <div class="name-cell">
+          <i class="bi bi-chevron-right expand-icon" id="icon_${oi}"></i>
+          <span style="font-weight:700;color:#fff;font-size:.76rem;">${cap(org.nombre)}</span>
+          <span style="font-size:.56rem;color:var(--muted);margin-left:4px;">${org.establecimientos.length} estab.</span>
+        </div>
+      </td>
+      <td class="center" style="font-weight:700;color:#fff;">${n(org.empleados)}</td>
+      <td class="center" style="color:var(--muted);">${n(org.estudios)}</td>
+      <td class="center b-left-cyan">${chip(org.presentes,'chip-green')}</td>
+      <td class="center">${chip(org.enGestion,'chip-blue')}</td>
+      <td class="center">${chip(org.ausentes,'chip-red')}</td>
+      <td class="center b-right-cyan">${chip(org.sinEstado,'chip-muted')}</td>
+      <td class="center b-left-grn">${chip(org.conResultado,'chip-green')}</td>
+      <td class="center b-right-grn">${chip(org.sinResultado,'chip-amber')}</td>`;
+    frag.appendChild(trOrg);
+
+    // — Filas establecimientos —
+    org.establecimientos.forEach(est => {
+      const trEst = document.createElement('tr');
+      trEst.className = `est-row est-of-${oi}`;
+      trEst.innerHTML = `
+        <td class="est-name-td">${cap(est.nombre)}</td>
+        <td class="center" style="font-weight:600;">${n(est.empleados)}</td>
+        <td class="center" style="color:var(--muted);">${n(est.estudios)}</td>
+        <td class="center b-left-cyan">${chip(est.presentes,'chip-green')}</td>
+        <td class="center">${chip(est.enGestion,'chip-blue')}</td>
+        <td class="center">${chip(est.ausentes,'chip-red')}</td>
+        <td class="center b-right-cyan">${chip(est.sinEstado,'chip-muted')}</td>
+        <td class="center b-left-grn">${chip(est.conResultado,'chip-green')}</td>
+        <td class="center b-right-grn">${chip(est.sinResultado,'chip-amber')}</td>`;
+      frag.appendChild(trEst);
+    });
+  });
+
+  // — Fila total —
+  const trTot = document.createElement('tr');
+  trTot.className = 'total-row';
+  trTot.innerHTML = `
+    <td style="font-weight:800;color:var(--muted);font-size:.63rem;text-transform:uppercase;letter-spacing:.5px;">
+      TOTAL · ${data.length} organismo${data.length!==1?'s':''}
+    </td>
+    <td class="center" style="font-weight:800;color:#fff;">${n(tEmp)}</td>
+    <td class="center" style="font-weight:700;color:var(--muted);">${n(tEst)}</td>
+    <td class="center b-left-cyan">${chip(tPres,'chip-green')}</td>
+    <td class="center">${chip(tGest,'chip-blue')}</td>
+    <td class="center">${chip(tAus,'chip-red')}</td>
+    <td class="center b-right-cyan">${chip(tSinE,'chip-muted')}</td>
+    <td class="center b-left-grn">${chip(tCon,'chip-green')}</td>
+    <td class="center b-right-grn">${chip(tSin,'chip-amber')}</td>`;
+  frag.appendChild(trTot);
+
+  body.appendChild(frag);
+  const totalEstabs = data.reduce((s, o) => s + o.establecimientos.length, 0);
+  document.getElementById('resultCount').textContent =
+    `${data.length} organismo${data.length!==1?'s':''} · ${totalEstabs} establecimiento${totalEstabs!==1?'s':''}`;
+}
+
+function toggleOrg(oi) {
+  const row    = document.getElementById(`org_${oi}`);
+  const icon   = document.getElementById(`icon_${oi}`);
+  const ests   = document.querySelectorAll(`.est-of-${oi}`);
+  const open   = row.classList.contains('expanded');
+  row.classList.toggle('expanded', !open);
+  icon.style.transform = open ? '' : 'rotate(90deg)';
+  ests.forEach(r => r.classList.toggle('visible', !open));
+}
+
+function expandirTodos() {
+  _allData.forEach((_, oi) => {
+    document.getElementById(`org_${oi}`)?.classList.add('expanded');
+    const ic = document.getElementById(`icon_${oi}`);
+    if (ic) ic.style.transform = 'rotate(90deg)';
+    document.querySelectorAll(`.est-of-${oi}`).forEach(r => r.classList.add('visible'));
+  });
+}
+
+function colapsarTodos() {
+  _allData.forEach((_, oi) => {
+    document.getElementById(`org_${oi}`)?.classList.remove('expanded');
+    const ic = document.getElementById(`icon_${oi}`);
+    if (ic) ic.style.transform = '';
+    document.querySelectorAll(`.est-of-${oi}`).forEach(r => r.classList.remove('visible'));
+  });
+}
+
+let _ft = null;
+function filtrarTabla() {
+  clearTimeout(_ft);
+  _ft = setTimeout(() => {
+    const q = document.getElementById('searchInput').value.toLowerCase().trim();
+    if (!q) { renderTabla(_allData); return; }
+    const res = _allData.map(org => {
+      const om = org.nombre.toLowerCase().includes(q);
+      const ests = om ? org.establecimientos
+        : org.establecimientos.filter(e => e.nombre.toLowerCase().includes(q));
+      if (!om && !ests.length) return null;
+      return { ...org, establecimientos: ests };
+    }).filter(Boolean);
+    renderTabla(res);
+  }, 200);
+}
+</script>
+</body>
+</html>
